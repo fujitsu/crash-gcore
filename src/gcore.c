@@ -500,6 +500,7 @@ void cmd_gcore_test(void)
 	TEST_MODULE(gcore_x86_test);
 	TEST_MODULE(gcore_coredump_table_test);
 	TEST_MODULE(gcore_dumpfilter_test);
+	TEST_MODULE(gcore_verbose_test);
 
 	if (!message)
 		fprintf(fp, "All test cases are successfully passed\n");

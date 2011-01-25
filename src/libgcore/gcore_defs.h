@@ -806,6 +806,7 @@ extern int tests_run;
 extern char *gcore_x86_test(void);
 extern char *gcore_coredump_table_test(void);
 extern char *gcore_dumpfilter_test(void);
+extern char *gcore_verbose_test(void);
 
 #endif
 
