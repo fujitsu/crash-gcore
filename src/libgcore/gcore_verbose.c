@@ -33,7 +33,7 @@ void gcore_verbose_set_default(void)
 
 int gcore_verbose_set(ulong level)
 {
-	if (level >= VERBOSE_MAX_LEVEL)
+	if (level > VERBOSE_MAX_LEVEL)
 		return FALSE;
 	gvd->level = level;
 	if (gvd->level & VERBOSE_NONQUIET)
