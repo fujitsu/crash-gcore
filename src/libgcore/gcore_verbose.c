@@ -52,3 +52,55 @@ ulong gcore_verbose_error_handle(void)
 {
 	return gvd->error_handle;
 }
+
+#ifdef GCORE_TEST
+
+char *gcore_verbose_test(void)
+{
+	int test;
+
+	gcore_verbose_set_default();
+	test = gcore_verbose_set(VERBOSE_PROGRESS);
+	mu_assert("failed to set VERBOSE_PROGRESS", test);
+	test = !!(gcore_verbose_get() & VERBOSE_PROGRESS);
+	mu_assert("VERBOSE_PROGRESS is not set even after set operation", test);
+	test = !!(gcore_verbose_error_handle() & QUIET);
+	mu_assert("error_handle is not set to QUIET", test);
+
+	gcore_verbose_set_default();
+	test = gcore_verbose_set(VERBOSE_NONQUIET);
+	mu_assert("failed to set VERBOSE_NONQUIET", test);
+	test = !!(gcore_verbose_get() & VERBOSE_NONQUIET);
+	mu_assert("VERBOSE_NONQUIET is not set even after set operation", test);
+	test = !!(gcore_verbose_error_handle() & QUIET);
+	mu_assert("error_handle is set to QUIET even if VERBOSE_NONQUIET is set", !test);
+
+	gcore_verbose_set_default();
+	test = gcore_verbose_set(VERBOSE_PAGEFAULT);
+	mu_assert("failed to set VERBOSE_PAGEFAULT", test);
+	test = !!(gcore_verbose_get() & VERBOSE_PAGEFAULT);
+	mu_assert("VERBOSE_PAGEFAULT is not set even after set operation", test);
+	test = !!(gcore_verbose_error_handle() & QUIET);
+	mu_assert("error_handle is not set to QUIET", test);
+
+	gcore_verbose_set_default();
+	test = gcore_verbose_set(VERBOSE_PAGEFAULT | VERBOSE_NONQUIET);
+	mu_assert("failed to set VERBOSE_PAGEFAULT | VERBOSE_NONQUIET", test);
+	test = !!(gcore_verbose_get() & (VERBOSE_PAGEFAULT | VERBOSE_NONQUIET));
+	mu_assert("VERBOSE_PAGEFAULT is not set even after set operation", test);
+	test = !!(gcore_verbose_error_handle() & QUIET);
+	mu_assert("error_handle is not set to QUIET", !test);
+
+	gcore_verbose_set_default();
+	test = gcore_verbose_set(VERBOSE_MAX_LEVEL);
+	mu_assert("VERBOSE_MAX_LEVEL should be valid, but here thought of as invalid.", test);
+
+	gcore_verbose_set_default();
+	test = gcore_verbose_set(VERBOSE_MAX_LEVEL+1);
+	mu_assert("(VERBOSE_MAX_LEVEL+1) should be invalid, but somehow accepted.", !test);
+
+	return NULL;
+}
+
+#endif /* GCORE_TEST */
+
