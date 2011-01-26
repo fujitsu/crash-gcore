@@ -490,19 +490,22 @@ NULL,
 
 void cmd_gcore_test(void)
 {
+	int failed = FALSE;
 	char *message = NULL;
 
 #define TEST_MODULE(test)					\
 	message = test();					\
-	if (message)						\
-		fprintf(fp, #test ": %s\n", message);
+	if (message) {						\
+		failed = TRUE;					\
+		fprintf(fp, #test ": %s\n", message);		\
+	}
 
 	TEST_MODULE(gcore_x86_test);
 	TEST_MODULE(gcore_coredump_table_test);
 	TEST_MODULE(gcore_dumpfilter_test);
 	TEST_MODULE(gcore_verbose_test);
 
-	if (!message)
+	if (!failed)
 		fprintf(fp, "All test cases are successfully passed\n");
 
 #undef TEST_MODULE
