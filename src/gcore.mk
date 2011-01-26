@@ -12,14 +12,18 @@
 # GNU General Public License for more details.
 #
 
+ARCH=UNSUPPORTED
+
 ifeq ($(shell arch), i686)
   TARGET=X86
   TARGET_CFLAGS=-D_FILE_OFFSET_BITS=64
+  ARCH=SUPPORTED
 endif
 
 ifeq ($(shell arch), x86_64)
   TARGET=X86_64
   TARGET_CFLAGS=
+  ARCH=SUPPORTED
 endif
 
 ifeq ($(shell /bin/ls /usr/include/crash/defs.h 2>/dev/null), /usr/include/crash/defs.h)
@@ -49,9 +53,14 @@ GCORE_OFILES = $(patsubst %.c,%.o,$(GCORE_CFILES))
 COMMON_CFLAGS=-Wall -I$(INCDIR) -I./libgcore -fPIC -D$(TARGET)
 
 all: gcore.so
-	
-gcore.so: $(INCDIR)/defs.h gcore.c $(GCORE_OFILES)
-	gcc $(TARGET_CFLAGS) $(COMMON_CFLAGS) -nostartfiles -shared -rdynamic $(GCORE_OFILES) -o gcore.so gcore.c
+
+gcore.so: gcore.c $(INCDIR)/defs.h
+	@if [ $(ARCH) = "UNSUPPORTED"  ]; then \
+		echo "gcore: architecture not supported"; \
+	else \
+		make -f gcore.mk $(GCORE_OFILES) && \
+		gcc $(TARGET_CFLAGS) $(COMMON_CFLAGS) -nostartfiles -shared -rdynamic $(GCORE_OFILES) -o $@ $< ; \
+	fi;
 
 %.o: %.c $(INCDIR)/defs.h
 	gcc $(TARGET_CFLAGS) $(COMMON_CFLAGS) -c -o $@ $<
