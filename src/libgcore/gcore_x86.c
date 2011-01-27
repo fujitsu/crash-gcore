@@ -1124,7 +1124,7 @@ restore_segment_registers(ulong task, struct user_regs_struct *regs)
  */
 static ulong restore_frame_pointer(ulong task)
 {
-	ulong rsp, rbp;
+	ulong rsp, rbp, prev_rbp, stacktop, stackbase;
 
 	/*
 	 * rsp is saved in task->thread.sp during switch_to().
@@ -1141,11 +1141,37 @@ static ulong restore_frame_pointer(ulong task)
 
 	/*
 	 * resume to the last rbp in user-mode.
+	 *
+	 * rbp in user-mode can have arbitrary value, so we need to
+	 * check whether rbp points onto the kernel stack or not.
+	 *
+	 * To make this operation always terminate, we check if rbp
+	 * value is strictly increasing (on x86_64, kernel stack grows
+	 * in the decreasing direction), which is sufficient for
+	 * termination property since the kernel stack size is finite.
+	 *
+	 * NOTE: This operation doesn't support tasks carrying in rbp
+	 * the values except for any user-mode address.
+	 *
+	 * The reason is that if rbp in user-mode is accidentally
+	 * equal to one of the remaining addresses in the kernel
+	 * stack, we cannot distinguish it from the rbp actually
+	 * pointing onto the kernel stack.
+	 *
+	 * It consequently takes, as rbp's, the value of another
+	 * register referred to by the address.
 	 */
-	while (IS_KVADDR(rbp))
+	stackbase = machdep->get_stackbase(task);
+	stacktop = machdep->get_stacktop(task);
+
+	prev_rbp = 0;
+
+	while (prev_rbp < rbp && rbp < stacktop && rbp >= stackbase) {
+		prev_rbp = rbp;
 		readmem(rbp, KVADDR, &rbp, sizeof(rbp),
 			"restore_frame_pointer: resume rbp",
 			gcore_verbose_error_handle());
+	}
 
 	return rbp;
 }
