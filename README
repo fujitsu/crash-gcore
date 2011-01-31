@@ -1,0 +1,152 @@
+Author: HATAYAMA, Daisuke <d.hatayama@jp.fujitsu.com>
+
+Summary
+~~~~~~~
+gcore extension module provides a means to create ELF core dump for
+user-mode process that is contained within crash kernel dump, designed
+to behave as kernel's ELF core dumper.
+
+Support Range 
+~~~~~~~~~~~~~
+ | ARCH           | X86, X86_64                                  |
+ | Kernel Version | RHEL4.8, RHEL5.5, RHEL6.0 and Vanilla 2.6.36 |
+
+External Link 
+~~~~~~~~~~~~~
+- crash utility
+  - http://people.redhat.com/anderson/
+- crash extension modules
+  - http://people.redhat.com/anderson/extensions.html
+
+TODO  
+~~~~
+- Improvement on register collection for active tasks
+- Improvement on callee-saved register collection on x86_64
+- Support tasks running in IA32e compatibility mode
+
+Help 
+~~~~
+NAME
+  gcore - gcore - retrieve a process image as a core dump
+
+SYNOPSIS
+  gcore 
+  gcore [-v vlevel] [-f filter] [pid | taskp]*
+  This command retrieves a process image as a core dump.
+
+DESCRIPTION
+  
+    -v Display verbose information according to vlevel:
+  
+           progress  library error  page fault
+       ---------------------------------------
+         0
+         1    x
+         2                  x
+         4                                x    (default)
+         7    x             x             x
+  
+    -f Specify kinds of memory to be written into core dumps according to
+       the filter flag in bitwise:
+  
+           AP  AS  FP  FS  ELF HP  HS
+       ------------------------------
+         0
+         1  x
+         2      x
+         4          x
+         8              x
+        16          x       x
+        32                      x
+        64                          x
+       127  x   x   x   x   x   x   x
+ 
+        AP  Anonymous Private Memory
+        AS  Anonymous Shared Memory
+        FP  File-Backed Private Memory
+        FS  File-Backed Shared Memory
+        ELF ELF header pages in file-backed private memory areas
+        HP  Hugetlb Private Memory
+        HS  Hugetlb Shared Memory
+
+  If no pid or taskp is specified, gcore tries to retrieve the process image
+  of the current task context.
+  
+  The file name of a generated core dump is core.<pid> where pid is PID of
+  the specified process.
+  
+  For a multi-thread process, gcore generates a core dump containing
+  information for all threads, which is similar to a behaviour of the ELF
+  core dumper in Linux kernel.
+  
+  Notice the difference of PID on between crash and linux that ps command in
+  crash utility displays LWP, while ps command in Linux thread group tid,
+  precisely PID of the thread group leader.
+  
+  gcore provides core dump filtering facility to allow users to select what
+  kinds of memory maps to be included in the resulting core dump. There are
+  7 kinds memory maps in total, and you can set it up with set command.
+  For more detailed information, please see a help command message.
+  
+EXAMPLES
+  Specify the process you want to retrieve as a core dump. Here assume the
+  process with PID 12345.
+  
+    crash> gcore 12345
+    Saved core.12345
+    crash>
+  
+  Next, specify by TASK. Here assume the process placing at the address
+  f9d7000 with PID 32323.
+  
+    crash> gcore f9d78000
+    Saved core.32323
+    crash>
+  
+  If multiple arguments are given, gcore performs dumping process in the
+  order the arguments are given.
+  
+    crash> gcore 5217 ffff880136d72040 23299 24459 ffff880136420040
+    Saved core.5217
+    Saved core.1130
+    Saved core.1130
+    Saved core.24459
+    Saved core.30102
+    crash>
+  
+  If no argument is given, gcore tries to retrieve the process of the current
+  task context.
+  
+    crash> set
+         PID: 54321
+     COMMAND: "bash"
+        TASK: e0000040f80c0000
+         CPU: 0
+       STATE: TASK_INTERRUPTIBLE
+    crash> gcore
+    Saved core.54321
+  
+  When a multi-thread process is specified, the generated core file name has
+  the thread leader's PID; here it is assumed to be 12340.
+  
+    crash> gcore 12345
+    Saved core.12340
+  
+  It is not allowed to specify two same options at the same time.
+  
+    crash> gcore -v 1 1234 -v 1
+    Usage: gcore
+      gcore [-v vlevel] [-f filter] [pid | taskp]*
+      gcore -d
+    Enter "help gcore" for details.
+  
+  It is allowed to specify -v and -f options in a different order.
+  
+    crash> gcore -v 2 5201 -f 21 ffff880126ff9520 5205
+    Saved core.5174
+    Saved core.5217
+    Saved core.5167
+    crash> gcore 5201 ffff880126ff9520 -f 21 5205 -v 2
+    Saved core.5174
+    Saved core.5217
+    Saved core.5167
