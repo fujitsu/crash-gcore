@@ -1369,7 +1369,7 @@ static int genregs_get(struct task_context *target,
 	if (active && KDUMP_DUMPFILE()) {
 		struct user_regs_struct *note_regs_p;
 
-		note_regs_p = get_regs_from_elf_notes(CURRENT_CONTEXT());
+		note_regs_p = get_regs_from_elf_notes(target);
 		memcpy(&note_regs, note_regs_p, sizeof(struct user_regs_struct));
 
 		/*
