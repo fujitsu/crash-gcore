@@ -1742,6 +1742,30 @@ void gcore_x86_64_regsets_init(void)
 #endif /* X86_64 */
 
 #ifdef X86
+static void
+get_regs_from_kvmdump_notes(struct task_context *target,
+			    struct user_regs_struct *regs)
+{
+	struct register_set *r = &kvm->registers[target->processor];
+
+	regs->ax = r->regs[0];
+	regs->cx = r->regs[1];
+	regs->dx = r->regs[2];
+	regs->bx = r->regs[3];
+	regs->sp = r->regs[4];
+	regs->bp = r->regs[5];
+	regs->si = r->regs[6];
+	regs->di = r->regs[7];
+	regs->cs = r->cs;
+	regs->ss = r->ss;
+	regs->ds = r->ds;
+	regs->es = r->es;
+	regs->fs = r->fs;
+	regs->gs = r->gs;
+	regs->ip = r->ip;
+	regs->flags = r->flags;
+}
+
 static int genregs_get32(struct task_context *target,
 			 const struct user_regset *regset,
 			 unsigned int size, void *buf)
@@ -1749,6 +1773,13 @@ static int genregs_get32(struct task_context *target,
 	struct user_regs_struct *regs = (struct user_regs_struct *)buf;
 	char *pt_regs_buf;
 	ulonglong pt_regs_addr;
+
+	if (is_task_active(target->task) && KVMDUMP_DUMPFILE()) {
+		get_regs_from_kvmdump_notes(target, regs);
+		if (user_mode(regs)) {
+			return TRUE;
+		}
+	}
 
 	pt_regs_buf = GETBUF(SIZE(pt_regs));
 
