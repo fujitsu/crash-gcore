@@ -15,6 +15,7 @@
 #if defined(X86) || defined(X86_64)
 
 #include "defs.h"
+#include "kvmdump.h"
 #ifdef X86_64
 #include "unwind_x86_64.h"
 #endif
@@ -1412,9 +1413,46 @@ gcore_get_regs_from_eframe(struct task_context *tc, struct pt_regs *regs)
 	return ret;
 }
 
+static void
+get_regs_from_kvmdump_notes(struct task_context *target,
+			    struct user_regs_struct *regs)
+{
+	struct register_set *r = &kvm->registers[target->processor];
+
+	regs->cs = r->cs;
+	regs->ss = r->ss;
+	regs->ds = r->ds;
+	regs->es = r->es;
+	regs->fs = r->fs;
+	regs->gs = r->gs;
+	regs->ip = r->ip;
+	regs->flags = r->flags;
+	regs->ax = r->regs[0];
+	regs->cx = r->regs[1];
+	regs->dx = r->regs[2];
+	regs->bx = r->regs[3];
+	regs->sp = r->regs[4];
+	regs->bp = r->regs[5];
+	regs->si = r->regs[6];
+	regs->di = r->regs[7];
+	regs->r8 = r->regs[8];
+	regs->r9 = r->regs[9];
+	regs->r10 = r->regs[10];
+	regs->r11 = r->regs[11];
+	regs->r12 = r->regs[12];
+	regs->r13 = r->regs[13];
+	regs->r14 = r->regs[14];
+	regs->r15 = r->regs[15];
+}
+
 static int get_active_regs(struct task_context *target,
 			   struct user_regs_struct *regs)
 {
+	if (KVMDUMP_DUMPFILE()) {
+		get_regs_from_kvmdump_notes(target, regs);
+		return TRUE;
+	}
+
 	if (get_netdump_arch() != EM_NONE) {
 		struct user_regs_struct *note = get_regs_from_elf_notes(target);
 		memcpy(regs, note, sizeof(struct user_regs_struct));
