@@ -1258,7 +1258,7 @@ static inline void restore_rest(ulong task, struct pt_regs *regs,
 	 * could trace the value of bp until its value became a
 	 * user-space address. See comments of restore_frame_pointer.
 	 */
-	if (machdep->flags & FRAMEPOINTER) {
+	else if ((machdep->flags & FRAMEPOINTER) && !is_task_active(task)) {
 		regs->rbp = restore_frame_pointer(task);
 	}
 }
