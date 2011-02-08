@@ -1354,12 +1354,79 @@ static ulong gcore_x86_64_get_cpu__pda_oldrsp(int cpu)
 	return oldrsp;
 }
 
+static int
+gcore_find_regs_from_bt_output(FILE *output, char *buf, size_t bufsize)
+{
+	while (fgets(buf, bufsize, output))
+		if (strncmp(buf, "    RIP:", 8) == 0)
+			return TRUE;
+
+	return FALSE;
+}
+
+static int
+gcore_get_regs_from_bt_output(FILE *output, struct pt_regs *regs)
+{
+	char buf[BUFSIZE];
+
+	if (gcore_find_regs_from_bt_output(output, buf, BUFSIZE) == FALSE)
+		return FALSE;
+
+	sscanf(buf, "    RIP: %016lx  RSP: %016lx  RFLAGS: %08lx\n",
+	       &regs->rip, &regs->rsp, &regs->eflags);
+	fscanf(output, "    RAX: %016lx  RBX: %016lx  RCX: %016lx\n",
+	       &regs->rax, &regs->rbx, &regs->rcx);
+	fscanf(output, "    RDX: %016lx  RSI: %016lx  RDI: %016lx\n",
+	       &regs->rdx, &regs->rsi, &regs->rdi);
+	fscanf(output, "    RBP: %016lx   R8: %016lx   R9: %016lx\n",
+	       &regs->rbp, &regs->r8, &regs->r9);
+	fscanf(output, "    R10: %016lx  R11: %016lx  R12: %016lx\n",
+	       &regs->r10, &regs->r11, &regs->r12);
+	fscanf(output, "    R13: %016lx  R14: %016lx  R15: %016lx\n",
+	       &regs->r13, &regs->r14, &regs->r15);
+	fscanf(output, "    ORIG_RAX: %016lx  CS: %04lx  SS: %04lx\n",
+	       &regs->orig_rax, &regs->cs, &regs->ss);
+
+	return TRUE;
+}
+
+static int
+gcore_get_regs_from_eframe(struct task_context *tc, struct pt_regs *regs)
+{
+	int ret;
+	struct bt_info bt;
+
+	BZERO(&bt, sizeof(struct bt_info));
+	bt.stackbuf = NULL;
+	bt.tc = tc;
+	bt.task = tc->task;
+	bt.stackbase = GET_STACKBASE(tc->task);
+	bt.stacktop = GET_STACKTOP(tc->task);
+
+	open_tmpfile();
+	back_trace(&bt);
+	rewind(pc->tmpfile);
+	ret = gcore_get_regs_from_bt_output(pc->tmpfile, regs);
+	close_tmpfile();
+
+	return ret;
+}
+
 static int get_active_regs(struct task_context *target,
 			   struct user_regs_struct *regs)
 {
 	if (get_netdump_arch() != EM_NONE) {
 		struct user_regs_struct *note = get_regs_from_elf_notes(target);
 		memcpy(regs, note, sizeof(struct user_regs_struct));
+		return TRUE;
+	}
+
+	if (gcore_get_regs_from_eframe(target, (struct pt_regs *)regs)) {
+		/*
+		 * EFRAME contains CS and SS only. Here collects the
+		 * remaining part of segment registers.
+		 */
+		restore_segment_registers(target->task, regs);
 		return TRUE;
 	}
 
