@@ -59,11 +59,11 @@ gcore.so: gcore.c $(INCDIR)/defs.h
 		echo "gcore: architecture not supported"; \
 	else \
 		make -f gcore.mk $(GCORE_OFILES) && \
-		gcc $(TARGET_CFLAGS) $(COMMON_CFLAGS) -nostartfiles -shared -rdynamic $(GCORE_OFILES) -o $@ $< ; \
+		gcc $(CFLAGS) $(TARGET_CFLAGS) $(COMMON_CFLAGS) -nostartfiles -shared -rdynamic $(GCORE_OFILES) -o $@ $< ; \
 	fi;
 
 %.o: %.c $(INCDIR)/defs.h
-	gcc $(TARGET_CFLAGS) $(COMMON_CFLAGS) -c -o $@ $<
+	gcc $(CFLAGS) $(TARGET_CFLAGS) $(COMMON_CFLAGS) -c -o $@ $<
 
 clean:
 	find ./libgcore -regex ".+\(o\|so\)" -exec rm -f {} \;
