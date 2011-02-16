@@ -16,8 +16,8 @@
 #include <defs.h>
 #include <gcore_defs.h>
 
-static struct gcore_data gcore_data = {0, };
-struct gcore_data *gcore = &gcore_data;
+static struct gcore_one_session_data gcore_one_session_data = {0, };
+struct gcore_one_session_data *gcore = &gcore_one_session_data;
 
 static struct gcore_coredump_table gcore_coredump_table = {0, };
 struct gcore_coredump_table *ggt = &gcore_coredump_table;
