@@ -842,6 +842,7 @@ struct gcore_one_session_data
 	int fd;
 	struct task_context *orig;
 	char corename[CORENAME_MAX_SIZE + 1];
+	struct gcore_elf_struct elf;
 };
 
 static inline void gcore_arch_table_init(void)

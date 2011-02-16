@@ -318,6 +318,8 @@ static void do_setup_gcore(struct task_context *tc)
 
 	snprintf(gcore->corename, CORENAME_MAX_SIZE + 1, "core.%lu.%s",
 		 task_tgid(CURRENT_TASK()), CURRENT_COMM());
+
+	gcore_elf_set_operations(&gcore->elf);
 }
 
 /**
