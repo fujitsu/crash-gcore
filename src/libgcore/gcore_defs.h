@@ -372,7 +372,7 @@ extern void gcore_coredump(void);
 /*
  * gcore_global_data.c
  */
-extern struct gcore_data *gcore;
+extern struct gcore_one_session_data *gcore;
 extern struct gcore_coredump_table *ggt;
 extern struct gcore_offset_table gcore_offset_table;
 extern struct gcore_size_table gcore_size_table;
@@ -741,7 +741,17 @@ extern struct gcore_size_table gcore_size_table;
 #define GCF_SUCCESS     0x1
 #define GCF_UNDER_COREDUMP 0x2
 
-struct gcore_data
+/*
+ * Data used during one session; one session means a period of core
+ * dump processing for a given task. For example, suppose:
+ *
+ *     crash> gcore task1 task2
+ *
+ * Then, there're two sessions: one for task1 and the other for
+ * task2. Session for task1 is not used for task2; all fields of which
+ * is initialized at the beginning of dump processing for task2.
+ */
+struct gcore_one_session_data
 {
 	ulong flags;
 	int fd;
