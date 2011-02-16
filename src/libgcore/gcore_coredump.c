@@ -15,7 +15,6 @@
 
 #include <defs.h>
 #include <gcore_defs.h>
-#include <elf.h>
 
 static void fill_prstatus(struct elf_prstatus *prstatus, ulong task,
 			  const struct thread_group_list *tglist);

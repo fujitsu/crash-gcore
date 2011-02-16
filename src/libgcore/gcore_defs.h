@@ -15,6 +15,8 @@
 #ifndef GCORE_DEFS_H_
 #define GCORE_DEFS_H_
 
+#include <elf.h>
+
 #define PN_XNUM 0xffff
 
 #define ELF_CORE_EFLAGS 0
@@ -740,6 +742,89 @@ extern struct gcore_size_table gcore_size_table;
  */
 #define GCF_SUCCESS     0x1
 #define GCF_UNDER_COREDUMP 0x2
+
+struct gcore_elf_struct;
+
+/**
+ * Abstract Elf64 and Elf32 structures and operations on them in order
+ * to support tasks in 32-bit mode on 64-bit machine. The current
+ * target is IA32e compatibility mode on X86_64 only.
+ *
+ * Actual implementations for X86 and X86_64 is in gcore_elf_struct.c.
+ */
+
+struct gcore_elf_operations
+{
+	void (*fill_elf_header)(struct gcore_elf_struct *this,
+				uint16_t e_phnum, uint16_t e_machine,
+				uint32_t e_flags, uint8_t ei_osabi);
+	void (*fill_section_header)(struct gcore_elf_struct *this, int phnum);
+	void (*fill_program_header)(struct gcore_elf_struct *this,
+				    uint32_t p_type, uint32_t p_flags,
+				    uint64_t p_offset, uint64_t p_vaddr,
+				    uint64_t p_filesz, uint64_t p_memsz,
+				    uint64_t p_align);
+	void (*fill_note_header)(struct gcore_elf_struct *this,
+				 uint32_t n_namesz, uint32_t n_descsz,
+				 uint32_t n_type);
+
+	/**
+	 * A set of helper functions to perform write operation for
+	 * respective ELF data structures.
+	 *
+	 *  @fd file descripter for a generated core dump file.
+	 *
+	 * - Return TRUE if write operation is successfully
+	 *   done. Otherwise, return FALSE.
+	 *
+	 * - No exception is raised.
+	 */
+	int (*write_elf_header)(struct gcore_elf_struct *this, int fd);
+	int (*write_section_header)(struct gcore_elf_struct *this, int fd);
+	int (*write_program_header)(struct gcore_elf_struct *this, int fd);
+	int (*write_note_header)(struct gcore_elf_struct *this, int fd,
+				 off_t *offset);
+
+	/**
+	 * Get fields of the ELF header. Because e_shoff in 32-bit is
+	 * uint32_t while that in 64-bit is uint64_t, bigger enough
+	 * has been choosed here. Any other has fixed uint16_t length.
+	 */
+	uint64_t (*get_e_shoff)(struct gcore_elf_struct *this);
+	uint16_t (*get_e_ehsize)(struct gcore_elf_struct *this);
+	uint16_t (*get_e_phentsize)(struct gcore_elf_struct *this);
+	uint16_t (*get_e_shentsize)(struct gcore_elf_struct *this);
+	uint16_t (*get_e_shnum)(struct gcore_elf_struct *this);
+
+	size_t (*get_note_header_size)(struct gcore_elf_struct *this);
+};
+
+struct gcore_elf64_structures
+{
+	Elf64_Ehdr ehdr;
+	Elf64_Shdr shdr;
+	Elf64_Phdr phdr;
+	Elf64_Nhdr nhdr;
+};
+
+struct gcore_elf32_structures
+{
+	Elf32_Ehdr ehdr;
+	Elf32_Shdr shdr;
+	Elf32_Phdr phdr;
+	Elf32_Nhdr nhdr;
+};
+
+struct gcore_elf_struct
+{
+	struct gcore_elf_operations *ops;
+	union {
+		struct gcore_elf64_structures elf64;
+		struct gcore_elf32_structures elf32;
+	};
+};
+
+extern void gcore_elf_set_operations(struct gcore_elf_struct *this);
 
 /*
  * Data used during one session; one session means a period of core
