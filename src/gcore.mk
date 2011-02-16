@@ -40,6 +40,7 @@ GCORE_CFILES = \
 	libgcore/gcore_coredump.c \
 	libgcore/gcore_coredump_table.c \
 	libgcore/gcore_dumpfilter.c \
+	libgcore/gcore_elf_struct.c \
 	libgcore/gcore_global_data.c \
 	libgcore/gcore_regset.c \
 	libgcore/gcore_verbose.c
