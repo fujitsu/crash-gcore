@@ -362,6 +362,7 @@ typedef elf_greg_t elf_gregset_t[ELF_NGREG];
 #endif
 
 extern int gcore_is_arch_32bit_emulation(struct task_context *tc);
+extern ulong gcore_arch_get_gate_vma(void);
 
 /*
  * gcore_coredump_table.c
@@ -617,8 +618,9 @@ struct elf_note_info {
 #define VM_HUGETLB      0x00400000      /* Huge TLB Page VM */
 #define VM_ALWAYSDUMP   0x04000000      /* Always include in core dumps */
 
-#define FOR_EACH_VMA_OBJECT(vma, index, mmap)		\
-	for (index = 0, vma = mmap; vma; ++index, vma = next_vma(vma))
+#define FOR_EACH_VMA_OBJECT(vma, index, mmap, gate_vma)			\
+	for (index = 0, vma = first_vma(mmap, gate_vma); vma;		\
+	     ++index, vma = next_vma(vma, gate_vma))
 
 extern int _init(void);
 extern int _fini(void);
