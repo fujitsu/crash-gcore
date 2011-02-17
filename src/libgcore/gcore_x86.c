@@ -1964,6 +1964,21 @@ int gcore_is_arch_32bit_emulation(struct task_context *tc)
 	return FALSE;
 }
 
+/**
+ * Return an address to gate_vma.
+ */
+ulong gcore_arch_get_gate_vma(void)
+{
+#ifdef X86_64
+	if (gcore_is_arch_32bit_emulation(CURRENT_CONTEXT()))
+		return 0UL;
+
+	return symbol_value("gate_vma");
+#else
+	return 0UL;
+#endif
+}
+
 #ifdef GCORE_TEST
 
 #ifdef X86_64
