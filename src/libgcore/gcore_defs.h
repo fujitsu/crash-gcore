@@ -797,8 +797,14 @@ struct gcore_elf_operations
 	uint64_t (*get_e_shoff)(struct gcore_elf_struct *this);
 	uint16_t (*get_e_ehsize)(struct gcore_elf_struct *this);
 	uint16_t (*get_e_phentsize)(struct gcore_elf_struct *this);
+	uint16_t (*get_e_phnum)(struct gcore_elf_struct *this);
 	uint16_t (*get_e_shentsize)(struct gcore_elf_struct *this);
 	uint16_t (*get_e_shnum)(struct gcore_elf_struct *this);
+
+	/**
+	 * Get fields of section header.
+	 */
+	uint32_t (*get_sh_info)(struct gcore_elf_struct *this);
 
 	size_t (*get_note_header_size)(struct gcore_elf_struct *this);
 };
