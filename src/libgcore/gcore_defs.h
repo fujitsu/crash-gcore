@@ -818,13 +818,11 @@ struct gcore_elf32_structures
 struct gcore_elf_struct
 {
 	struct gcore_elf_operations *ops;
-	union {
-		struct gcore_elf64_structures elf64;
-		struct gcore_elf32_structures elf32;
-	};
+	struct gcore_elf64_structures *elf64;
+	struct gcore_elf32_structures *elf32;
 };
 
-extern void gcore_elf_set_operations(struct gcore_elf_struct *this);
+extern void gcore_elf_init(struct gcore_elf_struct *this);
 
 /*
  * Data used during one session; one session means a period of core
