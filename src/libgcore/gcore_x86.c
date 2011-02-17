@@ -85,10 +85,10 @@ static int tsk_used_math_v11(ulong task);
 static void gcore_x86_64_regset_xstate_init(void);
 #endif
 
-#ifdef X86
 static int genregs_get32(struct task_context *target,
 			 const struct user_regset *regset, unsigned int size,
 			 void *buf);
+#ifdef X86
 static void gcore_x86_32_regset_xstate_init(void);
 #endif
 
@@ -1741,6 +1741,40 @@ static void gcore_x86_64_regset_xstate_init(void)
 void gcore_x86_64_regsets_init(void)
 {
        	gcore_x86_64_regset_xstate_init();
+}
+
+static int genregs_get32(struct task_context *target,
+			 const struct user_regset *regset,
+			 unsigned int size, void *buf)
+{
+	struct user_regs_struct32 *r32 = buf;
+	struct user_regset *x86_64_gen = &x86_64_regsets[REGSET_GENERAL];
+	struct user_regs_struct r64;
+
+	if (!x86_64_gen->get(target, x86_64_gen, sizeof(r64), &r64))
+		return 1;
+
+	BZERO(r32, sizeof(*r32));
+
+	r32->ebx = r64.bx;
+	r32->ecx = r64.cx;
+	r32->edx = r64.dx;
+	r32->esi = r64.si;
+	r32->edi = r64.di;
+	r32->ebp = r64.bp;
+	r32->eax = r64.ax;
+	r32->ds = r64.ds;
+	r32->es = r64.es;
+	r32->fs = r64.fs;
+	r32->gs = r64.gs;
+	r32->orig_eax = r64.orig_ax;
+	r32->eip = r64.ip;
+	r32->cs = r64.cs;
+	r32->eflags = r64.flags;
+	r32->esp = r64.sp;
+	r32->ss = r64.ss;
+
+	return 0;
 }
 
 #endif /* X86_64 */
