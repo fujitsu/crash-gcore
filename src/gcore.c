@@ -337,6 +337,7 @@ static void do_clean_gcore(void)
 	}
 	if (gcore->orig)
 		(void)set_context(gcore->orig->task, gcore->orig->pid);
+	gcore_elf_fini(&gcore->elf);
 }
 
 static void gcore_offset_table_init(void)

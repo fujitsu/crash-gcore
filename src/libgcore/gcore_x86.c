@@ -1935,6 +1935,35 @@ task_user_regset_view(void)
 #endif
 }
 
+/**
+ * If a given task @tc is running in IA32e compatibility mode on
+ * X86_64, return TRUE. Otherwise, return FALSE. On X86_32, always
+ * return FALSE.
+ *
+ * Assume all tasks in IA32e comp mode sets TIF_IA32 in thread_info
+ * flags.
+ */
+
+enum gcore_x86_thread_info_flag
+{
+	TIF_IA32 = 17 /* 32bit process */
+};
+
+int gcore_is_arch_32bit_emulation(struct task_context *tc)
+{
+#ifdef X86_64
+	uint32_t flags;
+	char *thread_info_buf;
+
+	thread_info_buf = fill_thread_info(tc->thread_info);
+	flags = ULONG(thread_info_buf + OFFSET(thread_info_flags));
+
+	if (flags & (1UL << TIF_IA32))
+		return TRUE;
+#endif
+	return FALSE;
+}
+
 #ifdef GCORE_TEST
 
 #ifdef X86_64
