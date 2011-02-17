@@ -382,7 +382,6 @@ fpregs_active(struct task_context *target,
 	return !!gxt->tsk_used_math(target->task);
 }
 
-#ifdef X86
 static void sanitize_i387_state(struct task_context *target)
 {
 	if (cpu_has_xsaveopt()) {
@@ -392,16 +391,14 @@ static void sanitize_i387_state(struct task_context *target)
 		 */
 	}
 }
-#endif
 
 #ifdef X86_64
 static inline int have_hwfp(void)
 {
 	return TRUE;
 }
-#endif
+#else
 
-#ifdef X86
 /*
  * CONFIG_MATH_EMULATION is set iff there's no math_emulate().
  */
@@ -423,6 +420,7 @@ static int have_hwfp(void)
 
 	return hard_math ? TRUE : FALSE;
 }
+#endif /* X86_64 */
 
 static int fpregs_soft_get(struct task_context *target,
 			   const struct user_regset *regset,
@@ -564,7 +562,6 @@ static int fpregs_get(struct task_context *target,
 
         return TRUE;
 }
-#endif
 
 static ulong gcore_x86_get_thread_struct_fpu_thread_xstate(struct task_context *tc)
 {
@@ -724,7 +721,6 @@ xstateregs_get(struct task_context *target,
  */
 #define TIF_FORCED_TF           24      /* true if TF in eflags artificially */
 
-#ifdef X86
 struct desc_struct {
 	uint16_t limit0;
 	uint16_t base0;
@@ -815,7 +811,6 @@ static int regset_tls_get(struct task_context *target,
 
 	return TRUE;
 }
-#endif /* X86 */
 
 #define IO_BITMAP_BITS  65536
 #define IO_BITMAP_BYTES (IO_BITMAP_BITS/8)
@@ -1016,24 +1011,6 @@ user_mode(const struct user_regs_struct *regs)
 
 #ifdef X86_64
 static int
-get_desc_base(ulong desc)
-{
-	uint16_t base0;
-	uint8_t base1, base2;
-
-	readmem(desc + GCORE_OFFSET(desc_struct_base0), KVADDR, &base0,
-		sizeof(base0), "get_desc_base: base0", gcore_verbose_error_handle());
-
-	readmem(desc + GCORE_OFFSET(desc_struct_base1), KVADDR, &base1,
-		sizeof(base1), "get_desc_base: base1", gcore_verbose_error_handle());
-
-	readmem(desc + GCORE_OFFSET(desc_struct_base2), KVADDR, &base2,
-		sizeof(base2), "get_desc_base: base2", gcore_verbose_error_handle());
-
-	return base0 | (base1 << 16) | (base2 << 24);
-}
-
-static int
 test_tsk_thread_flag(ulong task, int bit)
 {
 	ulong thread_info, flags;
@@ -1063,12 +1040,19 @@ restore_segment_registers(ulong task, struct user_regs_struct *regs)
 			"restore_segment_registers: fsindex",
 			gcore_verbose_error_handle());
 
-		regs->fs_base =
-			regs->fs_base != FS_TLS_SEL
-			? 0
-			: get_desc_base(task + OFFSET(task_struct_thread) +
-					FS_TLS * SIZE(desc_struct));
+		if (regs->fs_base != FS_TLS_SEL)
+			regs->fs_base = 0;
+		else {
+			struct desc_struct desc;
 
+			readmem(task + OFFSET(task_struct_thread) +
+				FS_TLS * SIZE(desc_struct), KVADDR, &desc,
+				sizeof(desc),
+				"restore_segment_registers: desc",
+				gcore_verbose_error_handle());
+
+			regs->fs_base = get_desc_base(&desc);
+		}
 	}
 
 	readmem(task + OFFSET(task_struct_thread) +
@@ -1083,12 +1067,19 @@ restore_segment_registers(ulong task, struct user_regs_struct *regs)
 			GCORE_SIZE(thread_struct_gs),
 			"restore_segment_registers: gs", gcore_verbose_error_handle());
 
-		regs->gs_base =
-			regs->gs_base != GS_TLS_SEL
-			? 0
-			: get_desc_base(task + OFFSET(task_struct_thread) +
-					GS_TLS * SIZE(desc_struct));
+		if (regs->gs_base != GS_TLS_SEL)
+			regs->gs_base = 0;
+		else {
+			struct desc_struct desc;
 
+			readmem(task + OFFSET(task_struct_thread) +
+				GS_TLS * SIZE(desc_struct), KVADDR, &desc,
+				sizeof(desc),
+				"restore_segment_registers: desc",
+				gcore_verbose_error_handle());
+
+			regs->gs_base = get_desc_base(&desc);
+		}
 	}
 
 	if (test_tsk_thread_flag(task, TIF_FORCED_TF))
@@ -1901,6 +1892,8 @@ void gcore_x86_table_init(void)
 
 #define user_regs_struct32 user_regs_struct
 
+#endif /* X86 */
+
 static struct user_regset x86_32_regsets[] = {
 	[REGSET_GENERAL] = {
 		.core_note_type = NT_PRSTATUS,
@@ -1963,7 +1956,6 @@ void gcore_x86_32_regsets_init(void)
 {
 	gcore_x86_32_regset_xstate_init();
 }
-#endif
 
 const struct user_regset_view *
 task_user_regset_view(void)
