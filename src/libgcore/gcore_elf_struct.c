@@ -127,6 +127,11 @@ static uint16_t elf64_get_e_phentsize(struct gcore_elf_struct *this)
 	return this->elf64->ehdr.e_phentsize;
 }
 
+static uint16_t elf64_get_e_phnum(struct gcore_elf_struct *this)
+{
+	return this->elf64->ehdr.e_phnum;
+}
+
 static uint16_t elf64_get_e_shentsize(struct gcore_elf_struct *this)
 {
 	return this->elf64->ehdr.e_shentsize;
@@ -135,6 +140,11 @@ static uint16_t elf64_get_e_shentsize(struct gcore_elf_struct *this)
 static uint16_t elf64_get_e_shnum(struct gcore_elf_struct *this)
 {
 	return this->elf64->ehdr.e_shnum;
+}
+
+static uint32_t elf64_get_sh_info(struct gcore_elf_struct *this)
+{
+	return this->elf64->shdr.sh_info;
 }
 
 static size_t elf64_get_note_header_size(struct gcore_elf_struct *this)
@@ -157,8 +167,12 @@ static struct gcore_elf_operations elf64_ops =
 	.get_e_shoff = elf64_get_e_shoff,
 	.get_e_ehsize = elf64_get_e_ehsize,
 	.get_e_phentsize = elf64_get_e_phentsize,
+	.get_e_phnum = elf64_get_e_phnum,
 	.get_e_shentsize = elf64_get_e_shentsize,
 	.get_e_shnum = elf64_get_e_shnum,
+
+	.get_sh_info = elf64_get_sh_info,
+
 	.get_note_header_size = elf64_get_note_header_size
 };
 
@@ -288,6 +302,11 @@ static uint16_t elf32_get_e_phentsize(struct gcore_elf_struct *this)
 	return this->elf32->ehdr.e_phentsize;
 }
 
+static uint16_t elf32_get_e_phnum(struct gcore_elf_struct *this)
+{
+	return this->elf32->ehdr.e_phnum;
+}
+
 static uint16_t elf32_get_e_shentsize(struct gcore_elf_struct *this)
 {
 	return this->elf32->ehdr.e_shentsize;
@@ -296,6 +315,11 @@ static uint16_t elf32_get_e_shentsize(struct gcore_elf_struct *this)
 static uint16_t elf32_get_e_shnum(struct gcore_elf_struct *this)
 {
 	return this->elf32->ehdr.e_shnum;
+}
+
+static uint32_t elf32_get_sh_info(struct gcore_elf_struct *this)
+{
+	return this->elf32->shdr.sh_info;
 }
 
 static size_t elf32_get_note_header_size(struct gcore_elf_struct *this)
@@ -318,8 +342,12 @@ static struct gcore_elf_operations elf32_ops =
 	.get_e_shoff = elf32_get_e_shoff,
 	.get_e_ehsize = elf32_get_e_ehsize,
 	.get_e_phentsize = elf32_get_e_phentsize,
+	.get_e_phnum = elf32_get_e_phnum,
 	.get_e_shentsize = elf32_get_e_shentsize,
 	.get_e_shnum = elf32_get_e_shnum,
+
+	.get_sh_info = elf32_get_sh_info,
+
 	.get_note_header_size = elf32_get_note_header_size
 };
 
