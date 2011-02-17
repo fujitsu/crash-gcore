@@ -35,7 +35,8 @@ static void alignfile(int fd, off_t *foffset);
 static void writenote(struct memelfnote *men, int fd, off_t *foffset);
 static void write_note_info(int fd, struct elf_note_info *info, off_t *foffset);
 static size_t get_note_info_size(struct elf_note_info *info);
-static ulong next_vma(ulong this_vma);
+static ulong first_vma(ulong mmap, ulong gate_vma);
+static ulong next_vma(ulong this_vma, ulong gate_vma);
 
 static inline int thread_group_leader(ulong task);
 
@@ -48,6 +49,7 @@ void gcore_coredump(void)
 	ulong vma, index, mmap;
 	off_t offset, foffset, dataoff;
 	char *mm_cache, *buffer = NULL;
+	ulong gate_vma;
 
 	gcore->flags |= GCF_UNDER_COREDUMP;
 
@@ -64,6 +66,9 @@ void gcore_coredump(void)
 
 	phnum = map_count;
 	phnum++; /* for note information */
+	gate_vma = gcore_arch_get_gate_vma();
+	if (gate_vma)
+		phnum++;
 
 	progressf("Retrieving note information ... \n");
 	fill_note_info(&info, tglist, phnum);
@@ -108,7 +113,7 @@ void gcore_coredump(void)
 	dataoff = offset = roundup(offset, ELF_EXEC_PAGESIZE);
 
 	progressf("Writing PT_LOAD program headers ... \n");
-	FOR_EACH_VMA_OBJECT(vma, index, mmap) {
+	FOR_EACH_VMA_OBJECT(vma, index, mmap, gate_vma) {
 		char *vma_cache;
 		ulong vm_start, vm_end, vm_flags;
 		uint64_t p_filesz;
@@ -157,7 +162,7 @@ void gcore_coredump(void)
 	}
 
 	progressf("Writing PT_LOAD segment ... \n");
-	FOR_EACH_VMA_OBJECT(vma, index, mmap) {
+	FOR_EACH_VMA_OBJECT(vma, index, mmap, gate_vma) {
 		ulong addr, end, vm_start;
 
 		vm_start = ULONG(fill_vma_cache(vma) +
@@ -537,9 +542,21 @@ get_note_info_size(struct elf_note_info *info)
 	return info->size;
 }
 
-static ulong next_vma(ulong this_vma)
+static ulong first_vma(ulong mmap, ulong gate_vma)
 {
-	return ULONG(fill_vma_cache(this_vma) + OFFSET(vm_area_struct_vm_next));
+	return mmap ? mmap : gate_vma;
+}
+
+static ulong next_vma(ulong this_vma, ulong gate_vma)
+{
+	ulong next;
+
+	next = ULONG(fill_vma_cache(this_vma) + OFFSET(vm_area_struct_vm_next));
+	if (next)
+		return next;
+	if (this_vma == gate_vma)
+		return 0UL;
+	return gate_vma;
 }
 
 static void
