@@ -329,6 +329,16 @@ struct user_regs_struct {
 	unsigned long	fs;
 	unsigned long	gs;
 };
+
+struct user_regs_struct32 {
+	uint32_t ebx, ecx, edx, esi, edi, ebp, eax;
+	unsigned short ds, __ds, es, __es;
+	unsigned short fs, __fs, gs, __gs;
+	uint32_t orig_eax, eip;
+	unsigned short cs, __cs;
+	uint32_t eflags, esp;
+	unsigned short ss, __ss;
+};
 #endif
 
 #ifdef X86
