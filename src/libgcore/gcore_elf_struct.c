@@ -323,9 +323,18 @@ static struct gcore_elf_operations elf32_ops =
 	.get_note_header_size = elf32_get_note_header_size
 };
 
+/**
+ * Initilize ELF interface. Choose an appropreate operation by looking
+ * at a bit length of the current execution environment and 32bit
+ * emulation. Allocate a enough memory space for a chosen
+ * field. Insert NULL into the unchoosed field.
+ *
+ * Assume invoked at the beginning of dump processing, and freed by
+ * gcore_elf_fini() after this session ends.
+ */
 void gcore_elf_init(struct gcore_elf_struct *this)
 {
-	if (BITS32()) {
+	if (BITS32() || gcore_is_arch_32bit_emulation(CURRENT_CONTEXT())) {
 		this->ops = &elf32_ops;
 		this->elf64 = NULL;
 		this->elf32 = (void *)GETBUF(sizeof(*this->elf32));
@@ -334,4 +343,19 @@ void gcore_elf_init(struct gcore_elf_struct *this)
 		this->elf64 = (void *)GETBUF(sizeof(*this->elf64));
 		this->elf32 = NULL;
 	}
+}
+
+/**
+ * Finalize ELF interface. Clean the data created by gcore_elf_init().
+ *
+ * Note unlike free(), FREEBUF() doesn't ignore NULL argument. Must
+ * NULL check before using FREEBUF().
+ */
+void gcore_elf_fini(struct gcore_elf_struct *this)
+{
+	this->ops = NULL;
+	if (this->elf64)
+		FREEBUF(this->elf64);
+	if (this->elf32)
+		FREEBUF(this->elf32);
 }

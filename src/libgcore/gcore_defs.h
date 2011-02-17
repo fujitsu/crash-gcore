@@ -361,6 +361,8 @@ typedef elf_greg_t elf_gregset_t[ELF_NGREG];
 #define PAGE_SIZE 4096
 #endif
 
+extern int gcore_is_arch_32bit_emulation(struct task_context *tc);
+
 /*
  * gcore_coredump_table.c
  */
@@ -823,6 +825,7 @@ struct gcore_elf_struct
 };
 
 extern void gcore_elf_init(struct gcore_elf_struct *this);
+extern void gcore_elf_fini(struct gcore_elf_struct *this);
 
 /*
  * Data used during one session; one session means a period of core
