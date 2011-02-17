@@ -1862,12 +1862,14 @@ void gcore_x86_table_init(void)
 	gcore_x86_table_register_tsk_used_math();
 }
 
+#define user_regs_struct32 user_regs_struct
+
 static struct user_regset x86_32_regsets[] = {
 	[REGSET_GENERAL] = {
 		.core_note_type = NT_PRSTATUS,
 		.name = "CORE",
 		.get = genregs_get32,
-		.size = sizeof(struct user_regs_struct),
+		.size = sizeof(struct user_regs_struct32),
 	},
 	[REGSET_FP] = {
 		.core_note_type = NT_FPREGSET,
