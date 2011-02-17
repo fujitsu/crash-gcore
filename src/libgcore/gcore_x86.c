@@ -1492,7 +1492,8 @@ static int genregs_get(struct task_context *target,
 	 * interrupt.
 	 */
 	readmem(machdep->get_stacktop(target->task) - SIZE(pt_regs), KVADDR,
-		regs, size, "genregs_get: pt_regs", gcore_verbose_error_handle());
+		regs, SIZE(pt_regs), "genregs_get: pt_regs",
+		gcore_verbose_error_handle());
 
 	/*
 	 * regs->orig_ax contains either a signal number or an IRQ
