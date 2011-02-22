@@ -471,7 +471,7 @@ static inline uint64_t div_u64_rem(uint64_t dividend, uint32_t divisor,
 }
 
 static inline void
-jiffies_to_timeval(const unsigned long jiffies, struct timeval *value)
+jiffies_to_timeval(const cputime_t jiffies, struct timeval *value)
 {
         /*
          * Convert jiffies to nanoseconds and separate with
@@ -484,7 +484,21 @@ jiffies_to_timeval(const unsigned long jiffies, struct timeval *value)
         value->tv_usec = rem / NSEC_PER_USEC;
 }
 
-#define cputime_to_timeval(__ct,__val)  jiffies_to_timeval(__ct,__val)
+static inline void
+cputime_to_timeval(const cputime_t cputime, struct timeval *value)
+{
+	jiffies_to_timeval(cputime, value);
+}
+
+static inline void
+cputime_to_compat_timeval(const cputime_t cputime,
+			  struct compat_timeval *value)
+{
+	struct timeval tv;
+	cputime_to_timeval(cputime, &tv);
+	value->tv_sec = tv.tv_sec;
+	value->tv_usec = tv.tv_usec;
+}
 
 struct elf_prstatus
 {
