@@ -18,16 +18,21 @@
 
 static struct elf_note_info *elf_note_info_init(void);
 
-static void fill_prstatus(struct elf_prstatus *prstatus, ulong task,
-			  const struct thread_group_list *tglist);
+static void fill_prstatus_note(struct elf_note_info *info,
+			       struct elf_thread_core_info *t,
+			       const struct thread_group_list *tglist);
 static void fill_psinfo_note(struct elf_note_info *info, ulong task);
 static void fill_auxv_note(struct elf_note_info *info, ulong task);
 
+static void compat_fill_prstatus_note(struct elf_note_info *info,
+			       struct elf_thread_core_info *t,
+			       const struct thread_group_list *tglist);
 static void compat_fill_psinfo_note(struct elf_note_info *info, ulong task);
 static void compat_fill_auxv_note(struct elf_note_info *info, ulong task);
 
 static int fill_thread_group(struct thread_group_list **tglist);
 static void fill_thread_core_info(struct elf_thread_core_info *t,
+				  struct elf_note_info *info,
 				  const struct user_regset_view *view,
 				  size_t *total,
 				  struct thread_group_list *tglist);
@@ -427,6 +432,7 @@ compat_fill_psinfo_note(struct elf_note_info *info, ulong task)
 
 static void
 fill_thread_core_info(struct elf_thread_core_info *t,
+		      struct elf_note_info *info,
 		      const struct user_regset_view *view, size_t *total,
 		      struct thread_group_list *tglist)
 {
@@ -437,12 +443,18 @@ fill_thread_core_info(struct elf_thread_core_info *t,
          * than being the whole note contents.  We fill the reset in here.
          * We assume that regset 0 is NT_PRSTATUS.
          */
-	fill_prstatus(&t->prstatus, t->task, tglist);
-        view->regsets[0].get(task_to_context(t->task), &view->regsets[0],
-			     sizeof(t->prstatus.pr_reg), &t->prstatus.pr_reg);
-
-        fill_note(&t->notes[0], "CORE", NT_PRSTATUS,
-                  sizeof(t->prstatus), &t->prstatus);
+	info->fill_prstatus_note(info, t, tglist);
+	if (BITS32() || gcore_is_arch_32bit_emulation(CURRENT_CONTEXT())) {
+		view->regsets[0].get(task_to_context(t->task),
+				     &view->regsets[0],
+				     sizeof(t->prstatus.v32.pr_reg),
+				     &t->prstatus.v32.pr_reg);
+	} else {
+		view->regsets[0].get(task_to_context(t->task),
+				     &view->regsets[0],
+				     sizeof(t->prstatus.v64.pr_reg),
+				     &t->prstatus.v64.pr_reg);
+	}
         *total += notesize(&t->notes[0]);
 
 	if (view->regsets[0].writeback)
@@ -481,9 +493,11 @@ static struct elf_note_info *elf_note_info_init(void)
 	info = (struct elf_note_info *)GETBUF(sizeof(*info));
 
 	if (BITS32() || gcore_is_arch_32bit_emulation(CURRENT_CONTEXT())) {
+		info->fill_prstatus_note = compat_fill_prstatus_note;
 		info->fill_psinfo_note = compat_fill_psinfo_note;
 		info->fill_auxv_note = compat_fill_auxv_note;
 	} else {
+		info->fill_prstatus_note = fill_prstatus_note;
 		info->fill_psinfo_note = fill_psinfo_note;
 		info->fill_auxv_note = fill_auxv_note;
 	}
@@ -545,7 +559,7 @@ fill_note_info(struct elf_note_info *info, struct thread_group_list *tglist,
 	}
 
 	for (t = info->thread; t; t = t->next)
-		fill_thread_core_info(t, view, &info->size, tglist);
+		fill_thread_core_info(t, info, view, &info->size, tglist);
 
         /*
 	 * Fill in the two process-wide notes.
@@ -675,73 +689,156 @@ static ulong next_vma(ulong this_vma, ulong gate_vma)
 }
 
 static void
-fill_prstatus(struct elf_prstatus *prstatus, ulong task,
-	      const struct thread_group_list *tglist)
+fill_prstatus_note(struct elf_note_info *info, struct elf_thread_core_info *t,
+		   const struct thread_group_list *tglist)
 {
 	ulong pending_signal_sig0, blocked_sig0, real_parent, group_leader,
 		signal, cutime,	cstime;
 
+        fill_note(&t->notes[0], "CORE", NT_PRSTATUS, sizeof(t->prstatus.v64),
+		  &t->prstatus.v64);
+
         /* The type of (sig[0]) is unsigned long. */
-	readmem(task + OFFSET(task_struct_pending) + OFFSET(sigpending_signal),
+	readmem(t->task + OFFSET(task_struct_pending) + OFFSET(sigpending_signal),
 		KVADDR, &pending_signal_sig0, sizeof(unsigned long),
 		"fill_prstatus: sigpending_signal_sig",
 		gcore_verbose_error_handle());
 
-	readmem(task + OFFSET(task_struct_blocked), KVADDR, &blocked_sig0,
+	readmem(t->task + OFFSET(task_struct_blocked), KVADDR, &blocked_sig0,
 		sizeof(unsigned long), "fill_prstatus: blocked_sig0",
 		gcore_verbose_error_handle());
 
-	readmem(task + OFFSET(task_struct_parent), KVADDR, &real_parent,
+	readmem(t->task + OFFSET(task_struct_parent), KVADDR, &real_parent,
 		sizeof(real_parent), "fill_prstatus: real_parent",
 		gcore_verbose_error_handle());
 
-	readmem(task + GCORE_OFFSET(task_struct_group_leader), KVADDR,
+	readmem(t->task + GCORE_OFFSET(task_struct_group_leader), KVADDR,
 		&group_leader, sizeof(group_leader),
 		"fill_prstatus: group_leader", gcore_verbose_error_handle());
 
-	prstatus->pr_info.si_signo = prstatus->pr_cursig = 0;
-        prstatus->pr_sigpend = pending_signal_sig0;
-        prstatus->pr_sighold = blocked_sig0;
-        prstatus->pr_ppid = ggt->task_pid(real_parent);
-        prstatus->pr_pid = ggt->task_pid(task);
-        prstatus->pr_pgrp = ggt->task_pgrp(task);
-        prstatus->pr_sid = ggt->task_session(task);
-        if (thread_group_leader(task)) {
+	t->prstatus.v64.pr_info.si_signo = t->prstatus.v64.pr_cursig = 0;
+        t->prstatus.v64.pr_sigpend = pending_signal_sig0;
+        t->prstatus.v64.pr_sighold = blocked_sig0;
+        t->prstatus.v64.pr_ppid = ggt->task_pid(real_parent);
+        t->prstatus.v64.pr_pid = ggt->task_pid(t->task);
+        t->prstatus.v64.pr_pgrp = ggt->task_pgrp(t->task);
+        t->prstatus.v64.pr_sid = ggt->task_session(t->task);
+        if (thread_group_leader(t->task)) {
                 struct task_cputime cputime;
 
                 /*
                  * This is the record for the group leader.  It shows the
                  * group-wide total, not its individual thread total.
                  */
-                ggt->thread_group_cputime(task, tglist, &cputime);
-                cputime_to_timeval(cputime.utime, &prstatus->pr_utime);
-                cputime_to_timeval(cputime.stime, &prstatus->pr_stime);
+                ggt->thread_group_cputime(t->task, tglist, &cputime);
+                cputime_to_timeval(cputime.utime, &t->prstatus.v64.pr_utime);
+                cputime_to_timeval(cputime.stime, &t->prstatus.v64.pr_stime);
         } else {
 		cputime_t utime, stime;
 
-		readmem(task + OFFSET(task_struct_utime), KVADDR, &utime,
-			sizeof(utime), "task_struct utime", gcore_verbose_error_handle());
+		readmem(t->task + OFFSET(task_struct_utime), KVADDR, &utime,
+			sizeof(utime), "task_struct utime",
+			gcore_verbose_error_handle());
 
-		readmem(task + OFFSET(task_struct_stime), KVADDR, &stime,
-			sizeof(stime), "task_struct stime", gcore_verbose_error_handle());
+		readmem(t->task + OFFSET(task_struct_stime), KVADDR, &stime,
+			sizeof(stime), "task_struct stime",
+			gcore_verbose_error_handle());
 
-                cputime_to_timeval(utime, &prstatus->pr_utime);
-                cputime_to_timeval(stime, &prstatus->pr_stime);
+                cputime_to_timeval(utime, &t->prstatus.v64.pr_utime);
+                cputime_to_timeval(stime, &t->prstatus.v64.pr_stime);
         }
 
-	readmem(task + OFFSET(task_struct_signal), KVADDR, &signal,
+	readmem(t->task + OFFSET(task_struct_signal), KVADDR, &signal,
 		sizeof(signal), "task_struct signal", gcore_verbose_error_handle());
 
-	readmem(task + GCORE_OFFSET(signal_struct_cutime), KVADDR,
+	readmem(t->task + GCORE_OFFSET(signal_struct_cutime), KVADDR,
 		&cutime, sizeof(cutime), "signal_struct cutime",
 		gcore_verbose_error_handle());
 
-	readmem(task + GCORE_OFFSET(signal_struct_cutime), KVADDR,
+	readmem(t->task + GCORE_OFFSET(signal_struct_cutime), KVADDR,
 		&cstime, sizeof(cstime), "signal_struct cstime",
 		gcore_verbose_error_handle());
 
-        cputime_to_timeval(cutime, &prstatus->pr_cutime);
-        cputime_to_timeval(cstime, &prstatus->pr_cstime);
+        cputime_to_timeval(cutime, &t->prstatus.v64.pr_cutime);
+        cputime_to_timeval(cstime, &t->prstatus.v64.pr_cstime);
+
+}
+
+static void
+compat_fill_prstatus_note(struct elf_note_info *info,
+			  struct elf_thread_core_info *t,
+			  const struct thread_group_list *tglist)
+{
+	ulong pending_signal_sig0, blocked_sig0, real_parent, group_leader,
+		signal, cutime,	cstime;
+
+        fill_note(&t->notes[0], "CORE", NT_PRSTATUS,
+                  sizeof(t->prstatus.v32), &t->prstatus.v32);
+
+        /* The type of (sig[0]) is unsigned long. */
+	readmem(t->task + OFFSET(task_struct_pending) + OFFSET(sigpending_signal),
+		KVADDR, &pending_signal_sig0, sizeof(unsigned long),
+		"fill_prstatus: sigpending_signal_sig",
+		gcore_verbose_error_handle());
+
+	readmem(t->task + OFFSET(task_struct_blocked), KVADDR, &blocked_sig0,
+		sizeof(unsigned long), "fill_prstatus: blocked_sig0",
+		gcore_verbose_error_handle());
+
+	readmem(t->task + OFFSET(task_struct_parent), KVADDR, &real_parent,
+		sizeof(real_parent), "fill_prstatus: real_parent",
+		gcore_verbose_error_handle());
+
+	readmem(t->task + GCORE_OFFSET(task_struct_group_leader), KVADDR,
+		&group_leader, sizeof(group_leader),
+		"fill_prstatus: group_leader", gcore_verbose_error_handle());
+
+	t->prstatus.v32.pr_info.si_signo = t->prstatus.v32.pr_cursig = 0;
+        t->prstatus.v32.pr_sigpend = pending_signal_sig0;
+        t->prstatus.v32.pr_sighold = blocked_sig0;
+        t->prstatus.v32.pr_ppid = ggt->task_pid(real_parent);
+        t->prstatus.v32.pr_pid = ggt->task_pid(t->task);
+        t->prstatus.v32.pr_pgrp = ggt->task_pgrp(t->task);
+        t->prstatus.v32.pr_sid = ggt->task_session(t->task);
+        if (thread_group_leader(t->task)) {
+                struct task_cputime cputime;
+
+                /*
+                 * This is the record for the group leader.  It shows the
+                 * group-wide total, not its individual thread total.
+                 */
+                ggt->thread_group_cputime(t->task, tglist, &cputime);
+                cputime_to_compat_timeval(cputime.utime, &t->prstatus.v32.pr_utime);
+                cputime_to_compat_timeval(cputime.stime, &t->prstatus.v32.pr_stime);
+        } else {
+		cputime_t utime, stime;
+
+		readmem(t->task + OFFSET(task_struct_utime), KVADDR, &utime,
+			sizeof(utime), "task_struct utime",
+			gcore_verbose_error_handle());
+
+		readmem(t->task + OFFSET(task_struct_stime), KVADDR, &stime,
+			sizeof(stime), "task_struct stime",
+			gcore_verbose_error_handle());
+
+                cputime_to_compat_timeval(utime, &t->prstatus.v32.pr_utime);
+                cputime_to_compat_timeval(stime, &t->prstatus.v32.pr_stime);
+        }
+
+	readmem(t->task + OFFSET(task_struct_signal), KVADDR, &signal,
+		sizeof(signal), "task_struct signal",
+		gcore_verbose_error_handle());
+
+	readmem(t->task + GCORE_OFFSET(signal_struct_cutime), KVADDR,
+		&cutime, sizeof(cutime), "signal_struct cutime",
+		gcore_verbose_error_handle());
+
+	readmem(t->task + GCORE_OFFSET(signal_struct_cutime), KVADDR,
+		&cstime, sizeof(cstime), "signal_struct cstime",
+		gcore_verbose_error_handle());
+
+        cputime_to_compat_timeval(cutime, &t->prstatus.v32.pr_cutime);
+        cputime_to_compat_timeval(cstime, &t->prstatus.v32.pr_cstime);
 
 }
 
