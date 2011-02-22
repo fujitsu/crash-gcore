@@ -634,6 +634,37 @@ struct thread_group_list {
 	ulong task;
 };
 
+struct memelfnote
+{
+	const char *name;
+	int type;
+	unsigned int datasz;
+	void *data;
+};
+
+struct elf_thread_core_info {
+	struct elf_thread_core_info *next;
+	ulong task;
+	union prstatus {
+		struct elf_prstatus v64;
+		struct compat_elf_prstatus v32;
+	} prstatus;
+	struct memelfnote notes[0];
+};
+
+struct elf_note_info {
+	void (*fill_prstatus_note)(struct elf_note_info *info,
+				   struct elf_thread_core_info *t,
+				   const struct thread_group_list *tglist);
+	void (*fill_psinfo_note)(struct elf_note_info *info, ulong task);
+	void (*fill_auxv_note)(struct elf_note_info *info, ulong task);
+	struct elf_thread_core_info *thread;
+	struct memelfnote psinfo;
+	struct memelfnote auxv;
+	size_t size;
+	int thread_notes;
+};
+
 /*
  * vm_flags in vm_area_struct, see mm_types.h.
  */
