@@ -319,7 +319,7 @@ static void do_setup_gcore(struct task_context *tc)
 	snprintf(gcore->corename, CORENAME_MAX_SIZE + 1, "core.%lu.%s",
 		 task_tgid(CURRENT_TASK()), CURRENT_COMM());
 
-	gcore_elf_init(&gcore->elf);
+	gcore_elf_init(gcore);
 }
 
 /**
@@ -337,7 +337,6 @@ static void do_clean_gcore(void)
 	}
 	if (gcore->orig)
 		(void)set_context(gcore->orig->task, gcore->orig->pid);
-	gcore_elf_fini(&gcore->elf);
 }
 
 static void gcore_offset_table_init(void)
