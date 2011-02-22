@@ -382,7 +382,7 @@ fill_thread_core_info(struct elf_thread_core_info *t,
 				 data))
 			continue;
 		if (regset->callback)
-			regset->callback(t, regset);
+			regset->callback(&t->prstatus, regset);
 
 		fill_note(&t->notes[i], regset->name, regset->core_note_type,
 			  regset->size, data);
