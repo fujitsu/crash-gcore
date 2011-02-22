@@ -16,6 +16,7 @@
 #define GCORE_DEFS_H_
 
 #include <elf.h>
+#include <gcore_compat_x86.h>
 
 #define PN_XNUM 0xffff
 
@@ -583,6 +584,45 @@ struct elf_prpsinfo
         /* Lots missing */
         char    pr_fname[16];   /* filename of executable */
         char    pr_psargs[ELF_PRARGSZ]; /* initial part of arg list */
+};
+
+struct compat_elf_siginfo
+{
+	compat_int_t			si_signo;
+	compat_int_t			si_code;
+	compat_int_t			si_errno;
+};
+
+struct compat_elf_prstatus
+{
+	struct compat_elf_siginfo	pr_info;
+	short				pr_cursig;
+	compat_ulong_t			pr_sigpend;
+	compat_ulong_t			pr_sighold;
+	compat_pid_t			pr_pid;
+	compat_pid_t			pr_ppid;
+	compat_pid_t			pr_pgrp;
+	compat_pid_t			pr_sid;
+	struct compat_timeval		pr_utime;
+	struct compat_timeval		pr_stime;
+	struct compat_timeval		pr_cutime;
+	struct compat_timeval		pr_cstime;
+	compat_elf_gregset_t		pr_reg;
+	compat_int_t			pr_fpvalid;
+};
+
+struct compat_elf_prpsinfo
+{
+	char				pr_state;
+	char				pr_sname;
+	char				pr_zomb;
+	char				pr_nice;
+	compat_ulong_t			pr_flag;
+	__compat_uid_t			pr_uid;
+	__compat_gid_t			pr_gid;
+	compat_pid_t			pr_pid, pr_ppid, pr_pgrp, pr_sid;
+	char				pr_fname[16];
+	char				pr_psargs[ELF_PRARGSZ];
 };
 
 #define TASK_COMM_LEN 16
