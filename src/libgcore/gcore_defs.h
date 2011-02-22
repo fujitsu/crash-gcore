@@ -110,18 +110,18 @@ typedef int user_regset_writeback_fn(struct task_context *target,
 				     const struct user_regset *regset,
 				     int immediate);
 
-struct elf_prstatus;
+struct elf_thread_core_info;
 
 /**
  * user_regset_callback_fn - type of @callback function in &struct user_regset
- * @prstatus:   prstatus information for a given task
+ * @t:   thread core information
  * @regset:	regset being examined
  *
- * Edit prstatus information contained in @t in terms of @regset.
+ * Edit thread core information contained in @t in terms of @regset.
  * This call is optional; the pointer is %NULL if there is no requirement to
  * edit.
  */
-typedef void user_regset_callback_fn(struct elf_prstatus *prstatus,
+typedef void user_regset_callback_fn(struct elf_thread_core_info *t,
 				     const struct user_regset *regset);
 
 /**
