@@ -757,8 +757,6 @@ extern struct gcore_size_table gcore_size_table;
 #define GCF_SUCCESS     0x1
 #define GCF_UNDER_COREDUMP 0x2
 
-struct gcore_elf_struct;
-
 /**
  * Abstract Elf64 and Elf32 structures and operations on them in order
  * to support tasks in 32-bit mode on 64-bit machine. The current
@@ -767,7 +765,7 @@ struct gcore_elf_struct;
  * Actual implementations for X86 and X86_64 is in gcore_elf_struct.c.
  */
 
-struct gcore_elf_operations
+struct gcore_elf_struct
 {
 	void (*fill_elf_header)(struct gcore_elf_struct *this,
 				uint16_t e_phnum, uint16_t e_machine,
@@ -819,31 +817,7 @@ struct gcore_elf_operations
 	size_t (*get_note_header_size)(struct gcore_elf_struct *this);
 };
 
-struct gcore_elf64_structures
-{
-	Elf64_Ehdr ehdr;
-	Elf64_Shdr shdr;
-	Elf64_Phdr phdr;
-	Elf64_Nhdr nhdr;
-};
-
-struct gcore_elf32_structures
-{
-	Elf32_Ehdr ehdr;
-	Elf32_Shdr shdr;
-	Elf32_Phdr phdr;
-	Elf32_Nhdr nhdr;
-};
-
-struct gcore_elf_struct
-{
-	struct gcore_elf_operations *ops;
-	struct gcore_elf64_structures *elf64;
-	struct gcore_elf32_structures *elf32;
-};
-
-extern void gcore_elf_init(struct gcore_elf_struct *this);
-extern void gcore_elf_fini(struct gcore_elf_struct *this);
+extern void gcore_elf_init(struct gcore_one_session_data *gcore);
 
 /*
  * Data used during one session; one session means a period of core
@@ -861,7 +835,7 @@ struct gcore_one_session_data
 	int fd;
 	struct task_context *orig;
 	char corename[CORENAME_MAX_SIZE + 1];
-	struct gcore_elf_struct elf;
+	struct gcore_elf_struct *elf;
 };
 
 static inline void gcore_arch_table_init(void)

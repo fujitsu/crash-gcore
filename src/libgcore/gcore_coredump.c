@@ -43,7 +43,6 @@ static inline int thread_group_leader(ulong task);
 
 void gcore_coredump(void)
 {
-	struct gcore_elf_struct *elf = &gcore->elf;
 	struct thread_group_list *tglist = NULL;
 	struct elf_note_info info;
 	int map_count, phnum;
@@ -84,27 +83,27 @@ void gcore_coredump(void)
 	progressf("done.\n");
 
 	progressf("Writing ELF header ... \n");
-	if (!elf->ops->write_elf_header(elf, gcore->fd))
+	if (!gcore->elf->write_elf_header(gcore->elf, gcore->fd))
 		error(FATAL, "%s: write: %s\n", gcore->corename,
 		      strerror(errno));
 	progressf(" done.\n");
 
-	if (elf->ops->get_e_shoff(elf)) {
+	if (gcore->elf->get_e_shoff(gcore->elf)) {
 		progressf("Writing section header table ... \n");
-		if (!elf->ops->write_section_header(elf, gcore->fd))
+		if (!gcore->elf->write_section_header(gcore->elf, gcore->fd))
 			error(FATAL, "%s: gcore: %s\n", gcore->corename,
 			      strerror(errno));
 		progressf("done.\n");
 	}
 
-	offset = calc_segment_offset(elf);
+	offset = calc_segment_offset(gcore->elf);
 	foffset = offset;
 
 	progressf("Writing PT_NOTE program header ... \n");
-	elf->ops->fill_program_header(elf, PT_NOTE, 0, offset, 0,
-				      get_note_info_size(&info), 0, 0);
+	gcore->elf->fill_program_header(gcore->elf, PT_NOTE, 0, offset, 0,
+					get_note_info_size(&info), 0, 0);
 	offset += get_note_info_size(&info);
-	if (!elf->ops->write_program_header(elf, gcore->fd))
+	if (!gcore->elf->write_program_header(gcore->elf, gcore->fd))
 		error(FATAL, "%s: write: %s\n", gcore->corename,
 		      strerror(errno));
 	progressf("done.\n");
@@ -133,12 +132,12 @@ void gcore_coredump(void)
 
 		p_filesz = gcore_dumpfilter_vma_dump_size(vma);
 
-		elf->ops->fill_program_header(elf, PT_LOAD, p_flags, offset,
-					      vm_start, p_filesz,
-					      vm_end - vm_start,
-					      ELF_EXEC_PAGESIZE);
+		gcore->elf->fill_program_header(gcore->elf, PT_LOAD, p_flags,
+						offset, vm_start, p_filesz,
+						vm_end - vm_start,
+						ELF_EXEC_PAGESIZE);
 
-		if (!elf->ops->write_program_header(elf, gcore->fd))
+		if (!gcore->elf->write_program_header(gcore->elf, gcore->fd))
 			error(FATAL, "%s: write, %s\n", gcore->corename,
 			      strerror(errno));
 	}
@@ -204,17 +203,17 @@ static off_t calc_segment_offset(struct gcore_elf_struct *elf)
 {
 	off_t eh_size, sht_size, pht_size;
 
-	eh_size = elf->ops->get_e_ehsize(elf);
+	eh_size = gcore->elf->get_e_ehsize(gcore->elf);
 
-	if (elf->ops->get_e_shoff(elf)) {
-		sht_size = elf->ops->get_e_shnum(elf)
-			* elf->ops->get_e_shentsize(elf);
-		pht_size = elf->ops->get_sh_info(elf)
-			* elf->ops->get_e_phentsize(elf);
+	if (gcore->elf->get_e_shoff(gcore->elf)) {
+		sht_size = gcore->elf->get_e_shnum(gcore->elf)
+			* gcore->elf->get_e_shentsize(gcore->elf);
+		pht_size = gcore->elf->get_sh_info(gcore->elf)
+			* gcore->elf->get_e_phentsize(gcore->elf);
 	} else {
 		sht_size = 0;
-		pht_size = elf->ops->get_e_phnum(elf)
-			* elf->ops->get_e_phentsize(elf);
+		pht_size = gcore->elf->get_e_phnum(gcore->elf)
+			* gcore->elf->get_e_phentsize(gcore->elf);
 	}
 
 	return eh_size + sht_size + pht_size;
@@ -396,7 +395,6 @@ static int
 fill_note_info(struct elf_note_info *info, struct thread_group_list *tglist,
 	       int phnum)
 {
-	struct gcore_elf_struct *elf = &gcore->elf;
 	const struct user_regset_view *view = task_user_regset_view();
 	struct thread_group_list *l;
 	struct elf_thread_core_info *t;
@@ -423,11 +421,11 @@ fill_note_info(struct elf_note_info *info, struct thread_group_list *tglist,
 	    view->regsets[0].core_note_type != NT_PRSTATUS)
 		error(FATAL, "regset 0 is _not_ NT_PRSTATUS\n");
 
-	elf->ops->fill_elf_header(elf, phnum, view->e_machine, view->e_flags,
-				  view->ei_osabi);
+	gcore->elf->fill_elf_header(gcore->elf, phnum, view->e_machine,
+				    view->e_flags, view->ei_osabi);
 
-	if (elf->ops->get_e_shoff(elf))
-		elf->ops->fill_section_header(elf, phnum);
+	if (gcore->elf->get_e_shoff(gcore->elf))
+		gcore->elf->fill_section_header(gcore->elf, phnum);
 
 	/* head task is always a dump target */
 	dump_task = tglist->task;
@@ -469,10 +467,9 @@ fill_note_info(struct elf_note_info *info, struct thread_group_list *tglist,
 static int
 notesize(struct memelfnote *en)
 {
-	struct gcore_elf_struct *elf = &gcore->elf;
         int sz;
 
-        sz = elf->ops->get_note_header_size(elf);
+        sz = gcore->elf->get_note_header_size(gcore->elf);
         sz += roundup(strlen(en->name) + 1, 4);
         sz += roundup(en->datasz, 4);
 
@@ -505,16 +502,15 @@ alignfile(int fd, off_t *foffset)
 static void
 writenote(struct memelfnote *men, int fd, off_t *foffset)
 {
-	struct gcore_elf_struct *elf = &gcore->elf;
 	uint32_t n_namesz, n_descsz, n_type;
 
 	n_namesz = strlen(men->name) + 1;
 	n_descsz = men->datasz;
 	n_type = men->type;
 
-	elf->ops->fill_note_header(elf, n_namesz, n_descsz, n_type);
+	gcore->elf->fill_note_header(gcore->elf, n_namesz, n_descsz, n_type);
 
-	if (!elf->ops->write_note_header(elf, fd, foffset))
+	if (!gcore->elf->write_note_header(gcore->elf, fd, foffset))
 		error(FATAL, "%s: write %s\n", gcore->corename,
 		      strerror(errno));
 
