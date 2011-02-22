@@ -32,6 +32,7 @@ struct elf_thread_core_info {
 };
 
 struct elf_note_info {
+	void (*fill_psinfo_note)(struct elf_note_info *info, ulong task);
 	void (*fill_auxv_note)(struct elf_note_info *info, ulong task);
 	struct elf_thread_core_info *thread;
 	struct memelfnote psinfo;
@@ -44,9 +45,10 @@ static struct elf_note_info *elf_note_info_init(void);
 
 static void fill_prstatus(struct elf_prstatus *prstatus, ulong task,
 			  const struct thread_group_list *tglist);
-static void fill_psinfo(struct elf_prpsinfo *psinfo, ulong task);
+static void fill_psinfo_note(struct elf_note_info *info, ulong task);
 static void fill_auxv_note(struct elf_note_info *info, ulong task);
 
+static void compat_fill_psinfo_note(struct elf_note_info *info, ulong task);
 static void compat_fill_auxv_note(struct elf_note_info *info, ulong task);
 
 static int fill_thread_group(struct thread_group_list **tglist);
@@ -308,13 +310,18 @@ task_nice(ulong task)
 }
 
 static void
-fill_psinfo(struct elf_prpsinfo *psinfo, ulong task)
+fill_psinfo_note(struct elf_note_info *info, ulong task)
 {
+	struct elf_prpsinfo *psinfo;
 	ulong arg_start, arg_end, parent;
 	physaddr_t paddr;
 	long state, uid, gid;
         unsigned int i, len;
 	char *mm_cache;
+
+	psinfo = (struct elf_prpsinfo *)GETBUF(sizeof(struct elf_prpsinfo));
+        fill_note(&info->psinfo, "CORE", NT_PRPSINFO,
+		  sizeof(struct elf_prpsinfo), psinfo);
 
         /* first copy the parameters from user space */
 	BZERO(psinfo, sizeof(struct elf_prpsinfo));
@@ -366,6 +373,76 @@ fill_psinfo(struct elf_prpsinfo *psinfo, ulong task)
 
 	SET_UID(psinfo->pr_uid, (uid_t)uid);
 	SET_GID(psinfo->pr_gid, (gid_t)gid);
+
+	readmem(task + OFFSET(task_struct_comm), KVADDR, &psinfo->pr_fname,
+		TASK_COMM_LEN, "fill_psinfo: comm",
+		gcore_verbose_error_handle());
+
+}
+
+static void
+compat_fill_psinfo_note(struct elf_note_info *info, ulong task)
+{
+	struct compat_elf_prpsinfo *psinfo;
+	ulong arg_start, arg_end, parent;
+	physaddr_t paddr;
+	long state, uid, gid;
+        unsigned int i, len;
+	char *mm_cache;
+
+	psinfo = (struct compat_elf_prpsinfo *)GETBUF(sizeof(*psinfo));
+        fill_note(&info->psinfo, "CORE", NT_PRPSINFO, sizeof(*psinfo), psinfo);
+
+        /* first copy the parameters from user space */
+	BZERO(psinfo, sizeof(struct elf_prpsinfo));
+
+	mm_cache = fill_mm_struct(task_mm(task, FALSE));
+
+	arg_start = ULONG(mm_cache + GCORE_OFFSET(mm_struct_arg_start));
+	arg_end = ULONG(mm_cache + GCORE_OFFSET(mm_struct_arg_end));
+
+        len = arg_end - arg_start;
+        if (len >= ELF_PRARGSZ)
+                len = ELF_PRARGSZ-1;
+	if (uvtop(CURRENT_CONTEXT(), arg_start, &paddr, FALSE)) {
+		readmem(paddr, PHYSADDR, &psinfo->pr_psargs, len,
+			"fill_psinfo: pr_psargs", gcore_verbose_error_handle());
+	} else {
+		pagefaultf("page fault at %lx\n", arg_start);
+	}
+        for(i = 0; i < len; i++)
+                if (psinfo->pr_psargs[i] == 0)
+                        psinfo->pr_psargs[i] = ' ';
+        psinfo->pr_psargs[len] = 0;
+
+	readmem(task + GCORE_OFFSET(task_struct_real_parent), KVADDR,
+		&parent, sizeof(parent), "fill_psinfo: real_parent",
+		gcore_verbose_error_handle());
+
+	psinfo->pr_ppid = ggt->task_pid(parent);
+	psinfo->pr_pid = ggt->task_pid(task);
+	psinfo->pr_pgrp = ggt->task_pgrp(task);
+	psinfo->pr_sid = ggt->task_session(task);
+
+	readmem(task + OFFSET(task_struct_state), KVADDR, &state, sizeof(state),
+		"fill_psinfo: state", gcore_verbose_error_handle());
+
+        i = state ? ffz(~state) + 1 : 0;
+        psinfo->pr_state = i;
+        psinfo->pr_sname = (i > 5) ? '.' : "RSDTZW"[i];
+        psinfo->pr_zomb = psinfo->pr_sname == 'Z';
+
+	psinfo->pr_nice = task_nice(task);
+
+	readmem(task + OFFSET(task_struct_flags), KVADDR, &psinfo->pr_flag,
+		sizeof(psinfo->pr_flag), "fill_psinfo: flags",
+		gcore_verbose_error_handle());
+
+	uid = ggt->task_uid(task);
+	gid = ggt->task_gid(task);
+
+	SET_UID(psinfo->pr_uid, (__compat_uid_t)uid);
+	SET_GID(psinfo->pr_gid, (__compat_gid_t)gid);
 
 	readmem(task + OFFSET(task_struct_comm), KVADDR, &psinfo->pr_fname,
 		TASK_COMM_LEN, "fill_psinfo: comm",
@@ -429,8 +506,10 @@ static struct elf_note_info *elf_note_info_init(void)
 	info = (struct elf_note_info *)GETBUF(sizeof(*info));
 
 	if (BITS32() || gcore_is_arch_32bit_emulation(CURRENT_CONTEXT())) {
+		info->fill_psinfo_note = compat_fill_psinfo_note;
 		info->fill_auxv_note = compat_fill_auxv_note;
 	} else {
+		info->fill_psinfo_note = fill_psinfo_note;
 		info->fill_auxv_note = fill_auxv_note;
 	}
 
@@ -444,16 +523,11 @@ fill_note_info(struct elf_note_info *info, struct thread_group_list *tglist,
 	const struct user_regset_view *view = task_user_regset_view();
 	struct thread_group_list *l;
 	struct elf_thread_core_info *t;
-	struct elf_prpsinfo *psinfo = NULL;
 	ulong dump_task;
 	unsigned int i;
 
 	info->size = 0;
 	info->thread = NULL;
-
-	psinfo = (struct elf_prpsinfo *)GETBUF(sizeof(struct elf_prpsinfo));
-        fill_note(&info->psinfo, "CORE", NT_PRPSINFO,
-		  sizeof(struct elf_prpsinfo), psinfo);
 
 	info->thread_notes = 0;
 	for (i = 0; i < view->n; i++)
@@ -501,7 +575,7 @@ fill_note_info(struct elf_note_info *info, struct thread_group_list *tglist,
         /*
 	 * Fill in the two process-wide notes.
          */
-        fill_psinfo(psinfo, dump_task);
+        info->fill_psinfo_note(info, dump_task);
         info->size += notesize(&info->psinfo);
 
 	info->fill_auxv_note(info, dump_task);
