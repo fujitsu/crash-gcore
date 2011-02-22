@@ -32,6 +32,7 @@ struct elf_thread_core_info {
 };
 
 struct elf_note_info {
+	void (*fill_auxv_note)(struct elf_note_info *info, ulong task);
 	struct elf_thread_core_info *thread;
 	struct memelfnote psinfo;
 	struct memelfnote auxv;
@@ -39,10 +40,15 @@ struct elf_note_info {
 	int thread_notes;
 };
 
+static struct elf_note_info *elf_note_info_init(void);
+
 static void fill_prstatus(struct elf_prstatus *prstatus, ulong task,
 			  const struct thread_group_list *tglist);
 static void fill_psinfo(struct elf_prpsinfo *psinfo, ulong task);
-static void fill_auxv_note(struct memelfnote *note, ulong task);
+static void fill_auxv_note(struct elf_note_info *info, ulong task);
+
+static void compat_fill_auxv_note(struct elf_note_info *info, ulong task);
+
 static int fill_thread_group(struct thread_group_list **tglist);
 static void fill_thread_core_info(struct elf_thread_core_info *t,
 				  const struct user_regset_view *view,
@@ -67,7 +73,7 @@ static inline int thread_group_leader(ulong task);
 void gcore_coredump(void)
 {
 	struct thread_group_list *tglist = NULL;
-	struct elf_note_info info;
+	struct elf_note_info *info;
 	int map_count, phnum;
 	ulong vma, index, mmap;
 	off_t offset, foffset, dataoff;
@@ -93,8 +99,10 @@ void gcore_coredump(void)
 	if (gate_vma)
 		phnum++;
 
+	info = elf_note_info_init();
+
 	progressf("Retrieving note information ... \n");
-	fill_note_info(&info, tglist, phnum);
+	fill_note_info(info, tglist, phnum);
 	progressf("done.\n");
 
 	progressf("Opening file %s ... \n", gcore->corename);
@@ -124,8 +132,8 @@ void gcore_coredump(void)
 
 	progressf("Writing PT_NOTE program header ... \n");
 	gcore->elf->fill_program_header(gcore->elf, PT_NOTE, 0, offset, 0,
-					get_note_info_size(&info), 0, 0);
-	offset += get_note_info_size(&info);
+					get_note_info_size(info), 0, 0);
+	offset += get_note_info_size(info);
 	if (!gcore->elf->write_program_header(gcore->elf, gcore->fd))
 		error(FATAL, "%s: write: %s\n", gcore->corename,
 		      strerror(errno));
@@ -167,7 +175,7 @@ void gcore_coredump(void)
 	progressf("done.\n");
 
 	progressf("Writing PT_NOTE segment ... \n");
-	write_note_info(gcore->fd, &info, &foffset);
+	write_note_info(gcore->fd, info, &foffset);
 	progressf("done.\n");
 
 	buffer = GETBUF(PAGE_SIZE);
@@ -414,6 +422,21 @@ fill_thread_core_info(struct elf_thread_core_info *t,
 
 }
 
+static struct elf_note_info *elf_note_info_init(void)
+{
+	struct elf_note_info *info;
+
+	info = (struct elf_note_info *)GETBUF(sizeof(*info));
+
+	if (BITS32() || gcore_is_arch_32bit_emulation(CURRENT_CONTEXT())) {
+		info->fill_auxv_note = compat_fill_auxv_note;
+	} else {
+		info->fill_auxv_note = fill_auxv_note;
+	}
+
+	return info;
+}
+
 static int
 fill_note_info(struct elf_note_info *info, struct thread_group_list *tglist,
 	       int phnum)
@@ -481,7 +504,7 @@ fill_note_info(struct elf_note_info *info, struct thread_group_list *tglist,
         fill_psinfo(psinfo, dump_task);
         info->size += notesize(&info->psinfo);
 
-	fill_auxv_note(&info->auxv, dump_task);
+	info->fill_auxv_note(info, dump_task);
 	info->size += notesize(&info->auxv);
 
 	return 0;
@@ -674,8 +697,9 @@ fill_prstatus(struct elf_prstatus *prstatus, ulong task,
 }
 
 static void
-fill_auxv_note(struct memelfnote *note, ulong task)
+fill_auxv_note(struct elf_note_info *info, ulong task)
 {
+	struct memelfnote *note = &info->auxv;
 	ulong *auxv;
 	int i;
 
@@ -693,4 +717,26 @@ fill_auxv_note(struct memelfnote *note, ulong task)
 
 	fill_note(note, "CORE", NT_AUXV, i * sizeof(ulong), auxv);
 
+}
+
+static void
+compat_fill_auxv_note(struct elf_note_info *info, ulong task)
+{
+	struct memelfnote *note = &info->auxv;
+	uint32_t *auxv;
+	int i;
+
+	auxv = (uint32_t *)GETBUF(GCORE_SIZE(mm_struct_saved_auxv));
+
+	readmem(task_mm(task, FALSE) +
+		GCORE_OFFSET(mm_struct_saved_auxv), KVADDR, auxv,
+		GCORE_SIZE(mm_struct_saved_auxv), "fill_auxv_note32",
+		gcore_verbose_error_handle());
+
+	i = 0;
+	do
+		i += 2;
+	while (auxv[i] != AT_NULL);
+
+	fill_note(note, "CORE", NT_AUXV, i * sizeof(uint32_t), auxv);
 }
