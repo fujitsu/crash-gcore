@@ -16,6 +16,29 @@
 #include <defs.h>
 #include <gcore_defs.h>
 
+struct memelfnote
+{
+	const char *name;
+	int type;
+	unsigned int datasz;
+	void *data;
+};
+
+struct elf_thread_core_info {
+	struct elf_thread_core_info *next;
+	ulong task;
+	struct elf_prstatus prstatus;
+	struct memelfnote notes[0];
+};
+
+struct elf_note_info {
+	struct elf_thread_core_info *thread;
+	struct memelfnote psinfo;
+	struct memelfnote auxv;
+	size_t size;
+	int thread_notes;
+};
+
 static void fill_prstatus(struct elf_prstatus *prstatus, ulong task,
 			  const struct thread_group_list *tglist);
 static void fill_psinfo(struct elf_prpsinfo *psinfo, ulong task);
