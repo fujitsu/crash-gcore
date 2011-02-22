@@ -589,32 +589,9 @@ struct elf_prpsinfo
 
 #define	CORENAME_MAX_SIZE 128
 
-struct memelfnote
-{
-	const char *name;
-	int type;
-	unsigned int datasz;
-	void *data;
-};
-
 struct thread_group_list {
 	struct thread_group_list *next;
 	ulong task;
-};
-
-struct elf_thread_core_info {
-	struct elf_thread_core_info *next;
-	ulong task;
-	struct elf_prstatus prstatus;
-	struct memelfnote notes[0];
-};
-
-struct elf_note_info {
-	struct elf_thread_core_info *thread;
-	struct memelfnote psinfo;
-	struct memelfnote auxv;
-	size_t size;
-	int thread_notes;
 };
 
 /*
