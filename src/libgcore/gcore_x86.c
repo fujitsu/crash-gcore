@@ -369,10 +369,10 @@ static int xfpregs_get(struct task_context *target,
 	return TRUE;
 }
 
-static void xfpregs_callback(struct elf_thread_core_info *t,
+static void xfpregs_callback(struct elf_prstatus *prstatus,
 			    const struct user_regset *regset)
 {
-	t->prstatus.pr_fpvalid = 1;
+	prstatus->pr_fpvalid = 1;
 }
 
 static inline int
