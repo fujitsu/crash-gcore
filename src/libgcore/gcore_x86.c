@@ -762,7 +762,7 @@ static void fill_user_desc(struct user_desc *info, int idx,
 	info->limit_in_pages = desc->g;
 	info->seg_not_present = !desc->p;
 	info->useable = desc->avl;
-#ifdef CONFIG_X86_64
+#ifdef X86_64
         info->lm = desc->l;
 #endif
 }
