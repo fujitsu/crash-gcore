@@ -1611,6 +1611,14 @@ restore_regs_sysenter32_context(struct task_context *target,
 	regs->flags &= ~0x200;
 }
 
+static void
+restore_regs_syscall32_context(struct task_context *target,
+			       struct user_regs_struct *regs,
+			       struct user_regs_struct *active_regs)
+{
+	restore_regs_ia32_syscall_common(target, regs, active_regs);
+}
+
 static int genregs_get(struct task_context *target,
 		       const struct user_regset *regset,
 		       unsigned int size, void *buf)
