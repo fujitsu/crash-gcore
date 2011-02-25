@@ -1180,7 +1180,7 @@ static ulong restore_frame_pointer(ulong task)
  *
  * @task interesting task object
  * @regs buffer into which register values are placed
- * @note_regs registers in NT_PRSTATUS saved at kernel crash
+ * @active_regs active register values
  *
  * SAVE_ARGS() doesn't save callee-saved registers: rbx, r12, r13, r14
  * and r15 because they are automatically saved at kernel stack frame
@@ -1191,7 +1191,7 @@ static ulong restore_frame_pointer(ulong task)
  * order to calculate accurate offsets to where individual register is
  * saved.
  *
- * note_regs is a starting point of backtracing for active tasks.
+ * @active_regs is a starting point of backtracing for active tasks.
  *
  * There are two kinds of sections for CFA to be placed in ELF's
  * debugging inforamtion sections: .eh_frame and .debug_frame. The
@@ -1199,7 +1199,7 @@ static ulong restore_frame_pointer(ulong task)
  * is_ehframe.
  */
 static inline void restore_rest(ulong task, struct pt_regs *regs,
-				const struct user_regs_struct *note_regs)
+				const struct user_regs_struct *active_regs)
 {
 	int first_frame;
 	struct unwind_frame_info frame;
@@ -1214,7 +1214,7 @@ static inline void restore_rest(ulong task, struct pt_regs *regs,
 	 * backtracing currently.
 	 */
 	if (is_task_active(task)) {
-		memcpy(&frame.regs, note_regs, sizeof(struct pt_regs));
+		memcpy(&frame.regs, active_regs, sizeof(struct pt_regs));
 	} else {
 		unsigned long rsp, rbp;
 
