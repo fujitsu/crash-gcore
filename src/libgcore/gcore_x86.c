@@ -2078,9 +2078,11 @@ const struct user_regset_view *
 task_user_regset_view(void)
 {
 #ifdef X86_64
+	if (gcore_is_arch_32bit_emulation(CURRENT_CONTEXT()))
+#endif
+		return &x86_32_regset_view;
+#ifdef X86_64
 	return &x86_64_regset_view;
-#elif X86
-	return &x86_32_regset_view;
 #endif
 }
 
