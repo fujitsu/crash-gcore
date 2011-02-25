@@ -1608,6 +1608,10 @@ restore_regs_sysenter32_context(struct task_context *target,
 				struct user_regs_struct *active_regs)
 {
 	restore_regs_ia32_syscall_common(target, regs, active_regs);
+
+	/*
+	 * clear IF (bit 9): Interrupt enable flag
+	 */
 	regs->flags &= ~0x200;
 }
 
