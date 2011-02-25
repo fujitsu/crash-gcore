@@ -1491,6 +1491,61 @@ static const unsigned char GCORE_OPCODE_SYSENTER[] = {0x0f, 0x05};
 static const unsigned char GCORE_OPCODE_SYSCALL[] = {0x0f, 0x34};
 static const unsigned char GCORE_OPCODE_INT80[] = {0xcd, 0x80};
 
+/**
+ * check how @target entered kernel-mode.
+ * @target target task context object
+ * @regs pt_regs structure at the bottom of @target's kernel stack
+ */
+static enum gcore_context
+check_context(struct task_context *target, struct pt_regs *regs)
+{
+	/*
+	 * regs->orig_ax contains either a signal number or an IRQ
+	 * number: if >=0, it's a signal number; if <0, it's an IRQ
+	 * number.
+	 */
+	if ((int)regs->orig_rax >= 0) {
+		physaddr_t paddr;
+		unsigned char opcode[GCORE_SYSCALL_OPCODE_BYTES];
+
+		if (!gcore_is_arch_32bit_emulation(target))
+			return GCORE_CONTEXT_SYSCALL;
+
+		if (!uvtop(target, regs->rip - sizeof(opcode), &paddr, FALSE))
+			return GCORE_CONTEXT_IA32_UNKNOWN;
+			
+		readmem(paddr, PHYSADDR, opcode, sizeof(opcode),
+			"check_context: opcode", gcore_verbose_error_handle());
+
+		if (memcmp(opcode, GCORE_OPCODE_SYSENTER, sizeof(opcode)) == 0)
+			return GCORE_CONTEXT_SYSENTER32;
+
+		if (memcmp(opcode, GCORE_OPCODE_SYSCALL, sizeof(opcode)) == 0)
+			return GCORE_CONTEXT_SYSCALL32;
+
+		if (memcmp(opcode, GCORE_OPCODE_INT80, sizeof(opcode)) == 0)
+			return GCORE_CONTEXT_INT80;
+
+	} else {
+		const int vector = (int)~regs->orig_rax;
+
+		if (vector < 0 || vector > 255)
+			return GCORE_CONTEXT_INVALID_VECTOR;
+
+		if (vector < 20)
+			return GCORE_CONTEXT_NMI_EXCEPTION;
+
+		if (vector < 32)
+			return GCORE_CONTEXT_INTEL_RESERVED;
+
+		if (vector < 256)
+			return GCORE_CONTEXT_IRQ;
+
+	}
+
+	return GCORE_CONTEXT_UNKNOWN;
+}
+
 static int genregs_get(struct task_context *target,
 		       const struct user_regset *regset,
 		       unsigned int size, void *buf)
