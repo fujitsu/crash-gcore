@@ -1487,6 +1487,10 @@ enum {
 	GCORE_SYSCALL_OPCODE_BYTES = 2
 };
 
+static const unsigned char GCORE_OPCODE_SYSENTER[] = {0x0f, 0x05};
+static const unsigned char GCORE_OPCODE_SYSCALL[] = {0x0f, 0x34};
+static const unsigned char GCORE_OPCODE_INT80[] = {0xcd, 0x80};
+
 static int genregs_get(struct task_context *target,
 		       const struct user_regset *regset,
 		       unsigned int size, void *buf)
