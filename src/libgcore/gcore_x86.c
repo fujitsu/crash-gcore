@@ -1589,6 +1589,19 @@ restore_regs_syscall_context(struct task_context *target,
 	restore_segment_registers(target->task, regs);
 }
 
+static void
+restore_regs_ia32_syscall_common(struct task_context *target,
+				 struct user_regs_struct *regs,
+				 struct user_regs_struct *active_regs)
+{
+	const int nr_syscall = (int)regs->orig_ax;
+
+	if (!gxt->is_special_ia32_syscall(nr_syscall))
+		restore_rest(target->task, (struct pt_regs *)regs, active_regs);
+
+	restore_segment_registers(target->task, regs);
+}
+
 static int genregs_get(struct task_context *target,
 		       const struct user_regset *regset,
 		       unsigned int size, void *buf)
