@@ -1483,6 +1483,10 @@ enum gcore_context
 	GCORE_CONTEXT_IA32_UNKNOWN
 };
 
+enum {
+	GCORE_SYSCALL_OPCODE_BYTES = 2
+};
+
 static int genregs_get(struct task_context *target,
 		       const struct user_regset *regset,
 		       unsigned int size, void *buf)
