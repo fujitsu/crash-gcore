@@ -1643,81 +1643,40 @@ static int genregs_get(struct task_context *target,
 		regs, SIZE(pt_regs), "genregs_get: pt_regs",
 		gcore_verbose_error_handle());
 
-	/*
-	 * regs->orig_ax contains either a signal number or an IRQ
-	 * number: if >=0, it's a signal number; if <0, it's an IRQ
-	 * number.
-	 */
-	if ((int)regs->orig_ax >= 0) {
-		const int nr_syscall = (int)regs->orig_ax;
-
-		/*
-		 * rsp is saved in per-CPU old_rsp, which is saved in
-		 * thread->usersp at each context switch.
-		 */
-		if (active) {
-			regs->sp = gxt->get_old_rsp(target->processor);
-		} else {
-			readmem(target->task + OFFSET(task_struct_thread) +
-				GCORE_OFFSET(thread_struct_usersp), KVADDR, &regs->sp,
-				sizeof(regs->sp),
-				"genregs_get: usersp", gcore_verbose_error_handle());
-		}
-
-		/*
-		 * entire registers are saved for special system calls.
-		 */
-		if (!gxt->is_special_syscall(nr_syscall))
-			restore_rest(target->task, (struct pt_regs *)regs, &active_regs);
-
-		/*
-		 * See FIXUP_TOP_OF_STACK in arch/x86/kernel/entry_64.S.
-		 */
-		regs->ss = __USER_DS;
-		regs->cs = __USER_CS;
-		regs->cx = (ulong)-1;
-		regs->flags = regs->r11;
-
+	switch (check_context(target, (struct pt_regs *)regs)) {
+	case GCORE_CONTEXT_UNKNOWN:
+		error(WARNING, "unknown kernel entry.\n");
+		break;
+	case GCORE_CONTEXT_INVALID_VECTOR: {
+		const int vector = (int)regs->orig_ax;
+		error(WARNING, "unexpected IRQ number: %d.\n", vector);
+		break;
+	}
+	case GCORE_CONTEXT_INTEL_RESERVED: {
+		const int vector = (int)regs->orig_ax;
+		error(WARNING, "IRQ number %d is reserved by Intel\n", vector);
+	}
+		break;
+	case GCORE_CONTEXT_NMI_EXCEPTION:
 		restore_segment_registers(target->task, regs);
-
-	} else {
-		const int vector = (int)~regs->orig_ax;
-
-		if (vector < 0 || vector > 255) {
-			error(WARNING, "unexpected IRQ number: %d.\n", vector);
-		}
-
-                /* Exceptions and NMI */
-		else if (vector < 20) {
-			restore_rest(target->task, (struct pt_regs *)regs,
-				     &active_regs);
-			restore_segment_registers(target->task, regs);
-		}
-
-                /* reserved by Intel */
-		else if (vector < 32) {
-			error(WARNING, "IRQ number %d is reserved by Intel\n",
-			      vector);
-		}
-
-		/* system call invocation by int 0x80 */
-		else if (vector == 0x80 && is_ia32_syscall_enabled()) {
-			const int nr_syscall = regs->ax;
-
-			if (!gxt->is_special_ia32_syscall(nr_syscall))
-				restore_rest(target->task,
-					     (struct pt_regs *)regs,
-					     &active_regs);
-			restore_segment_registers(target->task, regs);
-		}
-
-                /* Muskable Interrupts */
-		else if (vector < 256) {
-			restore_rest(target->task, (struct pt_regs *)regs,
-				     &active_regs);
-			restore_segment_registers(target->task, regs);
-		}
-
+		break;
+	case GCORE_CONTEXT_IA32_UNKNOWN:
+		error(WARNING,
+		      "system call instruction used could not be found\n");
+	case GCORE_CONTEXT_IRQ:
+	case GCORE_CONTEXT_INT80:
+		restore_rest(target->task, (struct pt_regs *)regs, &active_regs);
+		restore_segment_registers(target->task, regs);
+		break;
+	case GCORE_CONTEXT_SYSCALL:
+		restore_regs_syscall_context(target, regs, &active_regs);
+		break;
+	case GCORE_CONTEXT_SYSENTER32:
+		restore_regs_sysenter32_context(target, regs, &active_regs);
+		break;
+	case GCORE_CONTEXT_SYSCALL32:
+		restore_regs_syscall32_context(target, regs, &active_regs);
+		break;
 	}
 
 	return 0;
