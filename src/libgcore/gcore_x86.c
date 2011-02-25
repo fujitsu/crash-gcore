@@ -1469,6 +1469,20 @@ static int get_active_regs(struct task_context *target,
 	return FALSE;
 }
 
+enum gcore_context
+{
+	GCORE_CONTEXT_UNKNOWN = 0,
+	GCORE_CONTEXT_INVALID_VECTOR,
+	GCORE_CONTEXT_NMI_EXCEPTION,
+	GCORE_CONTEXT_INTEL_RESERVED,
+	GCORE_CONTEXT_IRQ,
+	GCORE_CONTEXT_SYSCALL,
+	GCORE_CONTEXT_SYSENTER32,
+	GCORE_CONTEXT_SYSCALL32,
+	GCORE_CONTEXT_INT80,
+	GCORE_CONTEXT_IA32_UNKNOWN
+};
+
 static int genregs_get(struct task_context *target,
 		       const struct user_regset *regset,
 		       unsigned int size, void *buf)
