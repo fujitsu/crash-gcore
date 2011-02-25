@@ -1546,6 +1546,49 @@ check_context(struct task_context *target, struct pt_regs *regs)
 	return GCORE_CONTEXT_UNKNOWN;
 }
 
+/**
+ * Restore registers saved in system_call entry.
+ * @target target task context object
+ * @regs pt_regs structure at the bottom of @target's kernel stack
+ * @active_regs active registers; used if @target is active
+ */
+static void
+restore_regs_syscall_context(struct task_context *target,
+			     struct user_regs_struct *regs,
+			     struct user_regs_struct *active_regs)
+{
+	const int nr_syscall = (int)regs->orig_ax;
+
+	/*
+	 * rsp is saved in per-CPU old_rsp, which is saved in
+	 * thread->usersp at each context switch.
+	 */
+	if (is_task_active(target->task)) {
+		regs->sp = gxt->get_old_rsp(target->processor);
+	} else {
+		readmem(target->task + OFFSET(task_struct_thread) +
+			GCORE_OFFSET(thread_struct_usersp), KVADDR, &regs->sp,
+			sizeof(regs->sp),
+			"genregs_get: usersp", gcore_verbose_error_handle());
+	}
+
+	/*
+	 * entire registers are saved for special system calls.
+	 */
+	if (!gxt->is_special_syscall(nr_syscall))
+		restore_rest(target->task, (struct pt_regs *)regs, active_regs);
+
+	/*
+	 * See FIXUP_TOP_OF_STACK in arch/x86/kernel/entry_64.S.
+	 */
+	regs->ss = __USER_DS;
+	regs->cs = __USER_CS;
+	regs->cx = (ulong)-1;
+	regs->flags = regs->r11;
+
+	restore_segment_registers(target->task, regs);
+}
+
 static int genregs_get(struct task_context *target,
 		       const struct user_regset *regset,
 		       unsigned int size, void *buf)
