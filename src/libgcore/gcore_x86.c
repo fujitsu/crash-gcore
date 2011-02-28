@@ -1859,7 +1859,7 @@ static int genregs_get32(struct task_context *target,
 	struct user_regset *x86_64_gen = &x86_64_regsets[REGSET_GENERAL];
 	struct user_regs_struct r64;
 
-	if (!x86_64_gen->get(target, x86_64_gen, sizeof(r64), &r64))
+	if (x86_64_gen->get(target, x86_64_gen, sizeof(r64), &r64))
 		return 1;
 
 	BZERO(r32, sizeof(*r32));
