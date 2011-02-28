@@ -310,6 +310,7 @@ static void do_setup_gcore(struct task_context *tc)
 {
 	gcore->flags = 0UL;
 	gcore->fd = 0;
+	gcore->orig = NULL;
 
 	if (tc != CURRENT_CONTEXT()) {
 		gcore->orig = CURRENT_CONTEXT();
