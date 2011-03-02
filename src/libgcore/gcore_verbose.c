@@ -25,12 +25,50 @@ struct gcore_verbose_data
 static struct gcore_verbose_data gcore_verbose_data = { 0 };
 static struct gcore_verbose_data *gvd = &gcore_verbose_data;
 
+/**
+ * set current verbose state to the default
+ *
+ * Precondition:
+ *
+ *   Nothing.
+ *
+ * Postcondition:
+ *
+ *   - gcore_verbose_get() == VERBOSE_DEFAULT_LEVEL
+ *   - gcore_verbose_error_handle() == VERBOSE_DEFAULT_ERROR_HANDLE
+ *
+ * Return Value:
+ *
+ *   Nothing.
+ */
 void gcore_verbose_set_default(void)
 {
 	gvd->level = VERBOSE_DEFAULT_LEVEL;
 	gvd->error_handle = VERBOSE_DEFAULT_ERROR_HANDLE;
 }
 
+/**
+ * set current verbose state to the one corresponding to a given level
+ *
+ * @level verbose level to be set
+ *
+ * Precondition:
+ *
+ *   Nothing.
+ *
+ * Postcondition:
+ *
+ *   If 0 <= @level <= VERBOSE_MAX_LEVEL, gcore_verbose_get() ==
+ *   @level. If VERBOSE_NONQUIET is set to @level, QUIET is unset to
+ *   gcore_verbose_error_handle(). If VERBOSE_NONQUIET is set, QUIET
+ *   is set conversely. If @level > VERBOSE_MAX_LEVEL, the state
+ *   remains the same.
+ *
+ * Return Value:
+ *
+ *   If 0 <= @level <= VERBOSE_MAX_LEVEL, return TRUE. Otherwise,
+ *   return FALSE.
+ */
 int gcore_verbose_set(ulong level)
 {
 	if (level > VERBOSE_MAX_LEVEL)
