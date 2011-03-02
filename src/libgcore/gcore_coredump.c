@@ -127,7 +127,7 @@ void gcore_coredump(void)
 	FOR_EACH_VMA_OBJECT(vma, index, mmap, gate_vma) {
 		char *vma_cache;
 		ulong vm_start, vm_end, vm_flags;
-		uint64_t p_filesz;
+		uint64_t p_offset, p_filesz;
 		uint32_t p_flags;
 
 		vma_cache = fill_vma_cache(vma);
@@ -143,10 +143,13 @@ void gcore_coredump(void)
 		if (vm_flags & VM_EXEC)
 			p_flags |= PF_X;
 
+		p_offset = offset;
 		p_filesz = gcore_dumpfilter_vma_dump_size(vma);
 
+		offset += p_filesz;
+
 		gcore->elf->fill_program_header(gcore->elf, PT_LOAD, p_flags,
-						offset, vm_start, p_filesz,
+						p_offset, vm_start, p_filesz,
 						vm_end - vm_start,
 						ELF_EXEC_PAGESIZE);
 
