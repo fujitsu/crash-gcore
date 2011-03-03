@@ -15,13 +15,13 @@
 
 #include "defs.h"
 #include <gcore_defs.h>
-#include <test-gcore.h>
+#include <CUnit/Basic.h>
 
 static char *help_test_gcore_verbose[];
 static void cmd_test_gcore_verbose(void);
 
-static void gcore_tc_gcore_verbose_set_default(struct gcore_test_result *);
-static void gcore_tc_gcore_verbose_set(struct gcore_test_result *);
+static void gcore_tc_gcore_verbose_set_default(void);
+static void gcore_tc_gcore_verbose_set(void);
 
 static struct command_table_entry command_table[] = {
 	{ "test_gcore_verbose", cmd_test_gcore_verbose, help_test_gcore_verbose, 0 },
@@ -52,73 +52,61 @@ NULL,
 
 static void cmd_test_gcore_verbose(void)
 {
-	struct gcore_test_result res;
+	CU_pSuite pSuite = NULL;
 
-	gcore_reset_result(&res);
+	if (CUE_SUCCESS != CU_initialize_registry())
+		goto CU_error;
 
-	fprintf(fp, "SUITE: gcore_verbose.c\n");
+	pSuite = CU_add_suite("gcore_verbose.c", NULL, NULL);
+	if (!pSuite)
+		goto CU_error;
 
-	gcore_reset_result(&res);
-	fprintf(fp, "TEST: gcore_verbose_set_default()\n");
-	gcore_tc_gcore_verbose_set_default(&res);
-	gcore_print_result(&res);
+	if (!CU_add_test(pSuite, "test of gcore_verbose_set_default()",
+			 gcore_tc_gcore_verbose_set_default))
+		goto CU_error;
 
-	fprintf(fp, "\n");
+	if (!CU_add_test(pSuite, "test of gcore_verse_set()",
+			 gcore_tc_gcore_verbose_set))
+		goto CU_error;
 
-	gcore_reset_result(&res);
-	fprintf(fp, "TEST: gcore_verbose_set()\n");
-	gcore_tc_gcore_verbose_set(&res);
-	gcore_print_result(&res);
+	CU_basic_set_mode(CU_BRM_VERBOSE);
+	CU_basic_run_tests();
+	CU_cleanup_registry();
+
+	return;
+
+CU_error:
+	error(FATAL, "%s\n", CU_get_error_msg());
+	CU_cleanup_registry();
 }
 
-static void gcore_tc_gcore_verbose_set_default(struct gcore_test_result *res)
+static void gcore_tc_gcore_verbose_set_default(void)
 {
 	gcore_verbose_set_default();
 
-	gcore_assert(gcore_verbose_get() == VERBOSE_DEFAULT_LEVEL
-		     && gcore_verbose_error_handle() == VERBOSE_DEFAULT_ERROR_HANDLE,
-		     "verbose default value mismatch",
-		     res);
+	CU_ASSERT(gcore_verbose_get() == VERBOSE_DEFAULT_LEVEL &&
+		  gcore_verbose_error_handle() == VERBOSE_DEFAULT_ERROR_HANDLE);
 }
 
-static void gcore_tc_gcore_verbose_set(struct gcore_test_result *res)
+static void gcore_tc_gcore_verbose_set(void)
 {
 	ulong prev_level, prev_error_handle;
 
 	/* negative case */
 	prev_level = gcore_verbose_get();
 	prev_error_handle = gcore_verbose_error_handle();
-	gcore_assert(gcore_verbose_set(VERBOSE_MAX_LEVEL+1) == FALSE,
-		     "succeeded even if a value larger than VERBOSE_MAX_LEVEL is given",
-		     res);
-	gcore_assert(prev_level == gcore_verbose_get()
-		     && prev_error_handle == gcore_verbose_error_handle(),
-		     "gcore_verbose_set(VERBOSE_MAX_LEVEL+1) doesn't preserve the state",
-		     res);
+
+	CU_ASSERT_FALSE(gcore_verbose_set(VERBOSE_MAX_LEVEL+1));
+	CU_ASSERT(prev_level == gcore_verbose_get() &&
+		  prev_error_handle == gcore_verbose_error_handle());
 
 	/* positive case */
-	gcore_assert(gcore_verbose_set(VERBOSE_MAX_LEVEL) && gcore_verbose_set(0),
-		     "failed even if valid input is given",
-		     res);
-
-	gcore_assert(gcore_verbose_set(VERBOSE_PROGRESS),
-		     "setting VERBOSE_PROGRESS failed",
-		     res);
-	gcore_assert(gcore_verbose_error_handle() & QUIET,
-		     "somehow QUIET has not been set in case of VERBOSE_PROGRESS",
-		     res);
-
-	gcore_assert(gcore_verbose_set(VERBOSE_NONQUIET),
-		     "setting VERBOSE_NONQUIET failed",
-		     res);
-	gcore_assert(!(gcore_verbose_error_handle() & QUIET),
-		     "somehow QUIET has been unset in case of VERBOSE_NONQUIET",
-		     res);
-
-	gcore_assert(gcore_verbose_set(VERBOSE_PAGEFAULT),
-		     "setting VERBOSE_PAGEFAULT failed",
-		     res);
-	gcore_assert(gcore_verbose_error_handle() & QUIET,
-		     "somehow QUIET has not been set in case of VERBOSE_PAGEFAULT",
-		     res);
+	CU_ASSERT(gcore_verbose_set(VERBOSE_MAX_LEVEL) == TRUE
+		  && gcore_verbose_set(0) == TRUE);
+	CU_ASSERT_TRUE(gcore_verbose_set(VERBOSE_PROGRESS));
+	CU_ASSERT(gcore_verbose_error_handle() & QUIET);
+	CU_ASSERT_TRUE(gcore_verbose_set(VERBOSE_NONQUIET));
+	CU_ASSERT(!(gcore_verbose_error_handle() & QUIET));
+	CU_ASSERT_TRUE(gcore_verbose_set(VERBOSE_PAGEFAULT));
+	CU_ASSERT(gcore_verbose_error_handle() & QUIET);
 }
