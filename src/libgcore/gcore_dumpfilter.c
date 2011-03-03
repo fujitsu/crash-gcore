@@ -40,7 +40,7 @@ static ulong dumpfilter = GCORE_DUMPFILTER_DEFAULT;
 int gcore_dumpfilter_set(ulong filter)
 {
 	if (filter > GCORE_DUMPFILTER_MAX_LEVEL)
-		return 0;
+		return FALSE;
 
 	dumpfilter = filter;
 
