@@ -229,6 +229,7 @@ extern void gcore_default_regsets_init(void);
 
 extern int gcore_dumpfilter_set(ulong filter);
 extern void gcore_dumpfilter_set_default(void);
+extern ulong gcore_dumpfilter_get(void);
 extern ulong gcore_dumpfilter_vma_dump_size(ulong vma);
 
 /*
