@@ -54,7 +54,8 @@ void gcore_verbose_set_default(void)
  *
  * Precondition:
  *
- *   Nothing.
+ *   - gcore_verbose_get() == VERBOSE_DEFAULT_LEVEL
+ *   - gcore_verbose_error_handle() == VERBOSE_DEFAULT_ERROR_HANDLE
  *
  * Postcondition:
  *
