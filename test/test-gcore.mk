@@ -44,7 +44,7 @@ TEST_GCORE_HFILES = \
 
 TEST_GCORE_OFILES = $(patsubst %.c,%.o,$(TEST_GCORE_CFILES))
 
-COMMON_CFLAGS=-Wall -I$(INCDIR) -I./libgcore -fPIC -D$(TARGET)
+COMMON_CFLAGS=-Wall -I$(INCDIR) -I./libgcore -fPIC -D$(TARGET) -lcunit
 
 all: test-gcore.so
 
