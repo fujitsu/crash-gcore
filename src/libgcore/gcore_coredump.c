@@ -103,7 +103,8 @@ void gcore_coredump(void)
 
 	if (gcore->elf->ops->get_e_shoff(gcore->elf)) {
 		progressf("Writing section header table ... \n");
-		if (!gcore->elf->ops->write_section_header(gcore->elf, gcore->fd))
+		if (!gcore->elf->ops->write_section_header(gcore->elf,
+							   gcore->fd))
 			error(FATAL, "%s: gcore: %s\n", gcore->corename,
 			      strerror(errno));
 		progressf("done.\n");
@@ -114,7 +115,7 @@ void gcore_coredump(void)
 
 	progressf("Writing PT_NOTE program header ... \n");
 	gcore->elf->ops->fill_program_header(gcore->elf, PT_NOTE, 0, offset, 0,
-					get_note_info_size(info), 0, 0);
+					     get_note_info_size(info), 0, 0);
 	offset += get_note_info_size(info);
 	if (!gcore->elf->ops->write_program_header(gcore->elf, gcore->fd))
 		error(FATAL, "%s: write: %s\n", gcore->corename,
@@ -148,12 +149,14 @@ void gcore_coredump(void)
 
 		offset += p_filesz;
 
-		gcore->elf->ops->fill_program_header(gcore->elf, PT_LOAD, p_flags,
-						p_offset, vm_start, p_filesz,
-						vm_end - vm_start,
-						ELF_EXEC_PAGESIZE);
+		gcore->elf->ops->fill_program_header(gcore->elf, PT_LOAD,
+						     p_flags, p_offset,
+						     vm_start, p_filesz,
+						     vm_end - vm_start,
+						     ELF_EXEC_PAGESIZE);
 
-		if (!gcore->elf->ops->write_program_header(gcore->elf, gcore->fd))
+		if (!gcore->elf->ops->write_program_header(gcore->elf,
+							   gcore->fd))
 			error(FATAL, "%s: write, %s\n", gcore->corename,
 			      strerror(errno));
 	}
@@ -534,7 +537,7 @@ fill_note_info(struct elf_note_info *info, struct thread_group_list *tglist,
 		error(FATAL, "regset 0 is _not_ NT_PRSTATUS\n");
 
 	gcore->elf->ops->fill_elf_header(gcore->elf, phnum, view->e_machine,
-				    view->e_flags, view->ei_osabi);
+					 view->e_flags, view->ei_osabi);
 
 	if (gcore->elf->ops->get_e_shoff(gcore->elf))
 		gcore->elf->ops->fill_section_header(gcore->elf, phnum);
@@ -620,7 +623,8 @@ writenote(struct memelfnote *men, int fd, off_t *foffset)
 	n_descsz = men->datasz;
 	n_type = men->type;
 
-	gcore->elf->ops->fill_note_header(gcore->elf, n_namesz, n_descsz, n_type);
+	gcore->elf->ops->fill_note_header(gcore->elf, n_namesz, n_descsz,
+					  n_type);
 
 	if (!gcore->elf->ops->write_note_header(gcore->elf, fd, foffset))
 		error(FATAL, "%s: write %s\n", gcore->corename,
