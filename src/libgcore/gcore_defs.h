@@ -849,7 +849,9 @@ extern struct gcore_size_table gcore_size_table;
  * Actual implementations for X86 and X86_64 is in gcore_elf_struct.c.
  */
 
-struct gcore_elf_struct
+struct gcore_elf_struct;
+
+struct gcore_elf_operations
 {
 	void (*fill_elf_header)(struct gcore_elf_struct *this,
 				uint16_t e_phnum, uint16_t e_machine,
@@ -900,6 +902,14 @@ struct gcore_elf_struct
 
 	size_t (*get_note_header_size)(struct gcore_elf_struct *this);
 };
+
+struct gcore_elf_struct
+{
+	struct gcore_elf_operations *ops;
+};
+
+extern const struct gcore_elf_operations *gcore_elf64_get_operations(void);
+extern const struct gcore_elf_operations *gcore_elf32_get_operations(void);
 
 extern void gcore_elf_init(struct gcore_one_session_data *gcore);
 
