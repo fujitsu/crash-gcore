@@ -18,6 +18,25 @@
 
 static ulong dumpfilter = GCORE_DUMPFILTER_DEFAULT;
 
+/**
+ * Set a given filter value to the current state
+ * @filter a filter value given from command line
+ *
+ * Precondition:
+ *
+ *   - Nothing.
+ *
+ * Postcondition:
+ *
+ *   - If @filter > GCORE_DUMPFILTER_MAX_LEVEL, then the Precondition remains.
+ *
+ *   - Otherwise, dumpfilter == @filter.
+ *
+ * Return Value:
+ *
+ *   - If @filter > GCORE_DUMPFILTER_MAX_LEVEL, return FALSE.
+ *   - Otherwise, return TRUE>
+ */
 int gcore_dumpfilter_set(ulong filter)
 {
 	if (filter > GCORE_DUMPFILTER_MAX_LEVEL)
