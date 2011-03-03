@@ -33,6 +33,11 @@ void gcore_dumpfilter_set_default(void)
 	dumpfilter = GCORE_DUMPFILTER_DEFAULT;
 }
 
+ulong gcore_dumpfilter_get(void)
+{
+	return dumpfilter;
+}
+
 static inline int is_filtered(int bit)
 {
 	return !!(dumpfilter & bit);
