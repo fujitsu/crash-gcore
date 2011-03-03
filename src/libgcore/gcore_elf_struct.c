@@ -170,28 +170,32 @@ static size_t elf64_get_note_header_size(struct gcore_elf_struct *this)
 	return sizeof(((struct gcore_elf64_struct *)this)->nhdr);
 }
 
-static void elf64_fill_operations(struct gcore_elf_struct *elf)
+struct gcore_elf_operations gcore_elf64_operations = {
+	.fill_elf_header = elf64_fill_elf_header,
+	.fill_section_header = elf64_fill_section_header,
+	.fill_program_header = elf64_fill_program_header,
+	.fill_note_header = elf64_fill_note_header,
+
+	.write_elf_header = elf64_write_elf_header,
+	.write_section_header = elf64_write_section_header,
+	.write_program_header = elf64_write_program_header,
+	.write_note_header = elf64_write_note_header,
+
+	.get_e_shoff = elf64_get_e_shoff,
+	.get_e_ehsize = elf64_get_e_ehsize,
+	.get_e_phentsize = elf64_get_e_phentsize,
+	.get_e_phnum = elf64_get_e_phnum,
+	.get_e_shentsize = elf64_get_e_shentsize,
+	.get_e_shnum = elf64_get_e_shnum,
+
+	.get_sh_info = elf64_get_sh_info,
+
+	.get_note_header_size = elf64_get_note_header_size,
+};
+
+const struct gcore_elf_operations *gcore_elf64_get_operations(void)
 {
-	elf->fill_elf_header = elf64_fill_elf_header;
-	elf->fill_section_header = elf64_fill_section_header;
-	elf->fill_program_header = elf64_fill_program_header;
-	elf->fill_note_header = elf64_fill_note_header;
-
-	elf->write_elf_header = elf64_write_elf_header;
-	elf->write_section_header = elf64_write_section_header;
-	elf->write_program_header = elf64_write_program_header;
-	elf->write_note_header = elf64_write_note_header;
-
-	elf->get_e_shoff = elf64_get_e_shoff;
-	elf->get_e_ehsize = elf64_get_e_ehsize;
-	elf->get_e_phentsize = elf64_get_e_phentsize;
-	elf->get_e_phnum = elf64_get_e_phnum;
-	elf->get_e_shentsize = elf64_get_e_shentsize;
-	elf->get_e_shnum = elf64_get_e_shnum;
-
-	elf->get_sh_info = elf64_get_sh_info;
-
-	elf->get_note_header_size = elf64_get_note_header_size;
+	return &gcore_elf64_operations;
 }
 
 static void
@@ -345,28 +349,32 @@ static size_t elf32_get_note_header_size(struct gcore_elf_struct *this)
 	return sizeof(((struct gcore_elf32_struct *)this)->nhdr);
 }
 
-static void elf32_fill_operations(struct gcore_elf_struct *elf)
+struct gcore_elf_operations gcore_elf32_operations = {
+	.fill_elf_header = elf32_fill_elf_header,
+	.fill_section_header = elf32_fill_section_header,
+	.fill_program_header = elf32_fill_program_header,
+	.fill_note_header = elf32_fill_note_header,
+
+	.write_elf_header = elf32_write_elf_header,
+	.write_section_header = elf32_write_section_header,
+	.write_program_header = elf32_write_program_header,
+	.write_note_header = elf32_write_note_header,
+
+	.get_e_shoff = elf32_get_e_shoff,
+	.get_e_ehsize = elf32_get_e_ehsize,
+	.get_e_phentsize = elf32_get_e_phentsize,
+	.get_e_phnum = elf32_get_e_phnum,
+	.get_e_shentsize = elf32_get_e_shentsize,
+	.get_e_shnum = elf32_get_e_shnum,
+
+	.get_sh_info = elf32_get_sh_info,
+
+	.get_note_header_size = elf32_get_note_header_size,
+};
+
+const struct gcore_elf_operations *gcore_elf32_get_operations(void)
 {
-	elf->fill_elf_header = elf32_fill_elf_header;
-	elf->fill_section_header = elf32_fill_section_header;
-	elf->fill_program_header = elf32_fill_program_header;
-	elf->fill_note_header = elf32_fill_note_header;
-
-	elf->write_elf_header = elf32_write_elf_header;
-	elf->write_section_header = elf32_write_section_header;
-	elf->write_program_header = elf32_write_program_header;
-	elf->write_note_header = elf32_write_note_header;
-
-	elf->get_e_shoff = elf32_get_e_shoff;
-	elf->get_e_ehsize = elf32_get_e_ehsize;
-	elf->get_e_phentsize = elf32_get_e_phentsize;
-	elf->get_e_phnum = elf32_get_e_phnum;
-	elf->get_e_shentsize = elf32_get_e_shentsize;
-	elf->get_e_shnum = elf32_get_e_shnum;
-
-	elf->get_sh_info = elf32_get_sh_info;
-
-	elf->get_note_header_size = elf32_get_note_header_size;
+	return &gcore_elf32_operations;
 }
 
 /**
@@ -380,17 +388,17 @@ static void elf32_fill_operations(struct gcore_elf_struct *elf)
 void gcore_elf_init(struct gcore_one_session_data *gcore)
 {
 	size_t size;
-	void (*fill_operations)(struct gcore_elf_struct *);
+	struct gcore_elf_operations *ops;
 
 	if (BITS32() || gcore_is_arch_32bit_emulation(CURRENT_CONTEXT())) {
 		size = sizeof(struct gcore_elf32_struct);
-		fill_operations = elf32_fill_operations;
+		ops = &gcore_elf32_operations;
 	} else {
 		size = sizeof(struct gcore_elf64_struct);
-		fill_operations = elf64_fill_operations;
+		ops = &gcore_elf64_operations;
 	}
 
 	gcore->elf = (struct gcore_elf_struct *)GETBUF(size);
 	BZERO(gcore->elf, size);
-	fill_operations(gcore->elf);
+	gcore->elf->ops = ops;
 }
