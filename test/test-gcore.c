@@ -123,5 +123,39 @@ static void gcore_tc_gcore_verbose_set(void)
 
 static void gcore_tc_gcore_dumpfilter_set(void)
 {
-	CU_FAIL("Not implemented yet");
+	ulong prev_dumpfilter;
+
+	gcore_dumpfilter_set_default();
+	prev_dumpfilter = gcore_dumpfilter_get();
+	/* negative case */
+	CU_ASSERT_FALSE(gcore_dumpfilter_set(GCORE_DUMPFILTER_MAX_LEVEL+1));
+	CU_ASSERT_EQUAL(gcore_dumpfilter_get(), prev_dumpfilter);
+
+	gcore_dumpfilter_set(0);
+	CU_ASSERT_TRUE(gcore_dumpfilter_set(GCORE_DUMPFILTER_ANON_PRIVATE));
+	CU_ASSERT_TRUE(gcore_dumpfilter_get() & GCORE_DUMPFILTER_ANON_PRIVATE);
+
+	gcore_dumpfilter_set(0);
+	CU_ASSERT_TRUE(gcore_dumpfilter_set(GCORE_DUMPFILTER_ANON_SHARED));
+	CU_ASSERT_TRUE(gcore_dumpfilter_get() & GCORE_DUMPFILTER_ANON_SHARED);
+
+	gcore_dumpfilter_set(0);
+	CU_ASSERT_TRUE(gcore_dumpfilter_set(GCORE_DUMPFILTER_MAPPED_PRIVATE));
+	CU_ASSERT_TRUE(gcore_dumpfilter_get() & GCORE_DUMPFILTER_MAPPED_PRIVATE);
+
+	gcore_dumpfilter_set(0);
+	CU_ASSERT_TRUE(gcore_dumpfilter_set(GCORE_DUMPFILTER_MAPPED_SHARED));
+	CU_ASSERT_TRUE(gcore_dumpfilter_get() & GCORE_DUMPFILTER_MAPPED_SHARED);
+
+	gcore_dumpfilter_set(0);
+	CU_ASSERT_TRUE(gcore_dumpfilter_set(GCORE_DUMPFILTER_ELF_HEADERS));
+	CU_ASSERT_TRUE(gcore_dumpfilter_get() & GCORE_DUMPFILTER_ELF_HEADERS);
+
+	gcore_dumpfilter_set(0);
+	CU_ASSERT_TRUE(gcore_dumpfilter_set(GCORE_DUMPFILTER_HUGETLB_PRIVATE));
+	CU_ASSERT_TRUE(gcore_dumpfilter_get() & GCORE_DUMPFILTER_HUGETLB_PRIVATE);
+
+	gcore_dumpfilter_set(0);
+	CU_ASSERT_TRUE(gcore_dumpfilter_set(GCORE_DUMPFILTER_HUGETLB_SHARED));
+	CU_ASSERT_TRUE(gcore_dumpfilter_get() & GCORE_DUMPFILTER_HUGETLB_SHARED);
 }
