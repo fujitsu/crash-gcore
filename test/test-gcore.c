@@ -17,14 +17,14 @@
 #include <gcore_defs.h>
 #include <CUnit/Basic.h>
 
-static char *help_test_gcore_verbose[];
-static void cmd_test_gcore_verbose(void);
+static char *help_test_gcore[];
+static void cmd_test_gcore(void);
 
 static void gcore_tc_gcore_verbose_set_default(void);
 static void gcore_tc_gcore_verbose_set(void);
 
 static struct command_table_entry command_table[] = {
-	{ "test_gcore_verbose", cmd_test_gcore_verbose, help_test_gcore_verbose, 0 },
+	{ "test_gcore", cmd_test_gcore, help_test_gcore, 0 },
 	{ (char *)NULL }                               
 };
 
@@ -41,16 +41,16 @@ _fini(void)
 	return 1;
 }
 
-static char *help_test_gcore_verbose[] = {
-"test_gcore_verbose",
-"test_gcore_verbose - test verbose feature of gcore extension module",
+static char *help_test_gcore[] = {
+"test_gcore",
+"test_gcore - test vmcore-independent part in gcore extension module",
 "  ",
 "  Execute a set of testcases and then display their results.",
 "  ",
 NULL,
 };
 
-static void cmd_test_gcore_verbose(void)
+static void cmd_test_gcore(void)
 {
 	CU_pSuite pSuite = NULL;
 
