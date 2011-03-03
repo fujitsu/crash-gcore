@@ -378,12 +378,28 @@ const struct gcore_elf_operations *gcore_elf32_get_operations(void)
 }
 
 /**
- * Initilize ELF interface. Choose an appropreate operation by looking
- * at a bit length of the current execution environment and 32bit
- * emulation. Allocate a enough memory space for a chosen
- * struct. Insert NULL into the unchoosed field.
+ * Initialize ELF interface object.
+ * @gcore one session data whose elf field is initialized
  *
- * Assume invoked at the beginning of dump processing.
+ * Precondition:
+ *
+ *   Nothing.
+ *
+ * Postcondition:
+ *
+ *   If the current task_context is a 32-bit task:
+ *
+ *     - gcore_elf32_struct structure is allocated to gcore->elf, and
+ *     - gcore->elf->ops == &gcore_elf32_operations.
+ *
+ *   Otherwise,
+ *
+ *     - gcore_elf64_struct structure is allocated to gcore->elf, and
+ *     - gcore->elf->ops == &gcore_elf64_operations.
+ *
+ * Return Value:
+ *
+ *   Nothing.
  */
 void gcore_elf_init(struct gcore_one_session_data *gcore)
 {
