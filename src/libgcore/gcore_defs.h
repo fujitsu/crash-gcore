@@ -207,6 +207,26 @@ extern void gcore_default_regsets_init(void);
 /*
  * gcore_dumpfilter.c
  */
+#define GCORE_DUMPFILTER_ANON_PRIVATE    (0x1)
+#define GCORE_DUMPFILTER_ANON_SHARED     (0x2)
+#define GCORE_DUMPFILTER_MAPPED_PRIVATE  (0x4)
+#define GCORE_DUMPFILTER_MAPPED_SHARED   (0x8)
+#define GCORE_DUMPFILTER_ELF_HEADERS     (0x10)
+#define GCORE_DUMPFILTER_HUGETLB_PRIVATE (0x20)
+#define GCORE_DUMPFILTER_HUGETLB_SHARED  (0x40)
+
+#define GCORE_DUMPFILTER_MAX_LEVEL (GCORE_DUMPFILTER_ANON_PRIVATE	\
+				    |GCORE_DUMPFILTER_ANON_SHARED	\
+				    |GCORE_DUMPFILTER_MAPPED_PRIVATE	\
+				    |GCORE_DUMPFILTER_MAPPED_SHARED	\
+				    |GCORE_DUMPFILTER_ELF_HEADERS	\
+				    |GCORE_DUMPFILTER_HUGETLB_PRIVATE	\
+				    |GCORE_DUMPFILTER_HUGETLB_SHARED)
+
+#define GCORE_DUMPFILTER_DEFAULT (GCORE_DUMPFILTER_ANON_PRIVATE		\
+				  | GCORE_DUMPFILTER_ANON_SHARED	\
+				  | GCORE_DUMPFILTER_HUGETLB_PRIVATE)
+
 extern int gcore_dumpfilter_set(ulong filter);
 extern void gcore_dumpfilter_set_default(void);
 extern ulong gcore_dumpfilter_vma_dump_size(ulong vma);
