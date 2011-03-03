@@ -23,7 +23,6 @@ static void cmd_test_gcore(void);
 static void gcore_tc_gcore_verbose_set_default(void);
 static void gcore_tc_gcore_verbose_set(void);
 
-static void gcore_tc_gcore_dumpfilter_set_default(void);
 static void gcore_tc_gcore_dumpfilter_set(void);
 
 static struct command_table_entry command_table[] = {
@@ -76,10 +75,6 @@ static void cmd_test_gcore(void)
 	if (!pSuite)
 		goto CU_error;
 
-	if (!CU_add_test(pSuite, "test of gcore_dumpfilter_set_default()",
-			 gcore_tc_gcore_dumpfilter_set_default))
-		goto CU_error;
-
 	if (!CU_add_test(pSuite, "test of gcore_dumpfilter_set()",
 			 gcore_tc_gcore_dumpfilter_set))
 		goto CU_error;
@@ -124,11 +119,6 @@ static void gcore_tc_gcore_verbose_set(void)
 	CU_ASSERT(!(gcore_verbose_error_handle() & QUIET));
 	CU_ASSERT_TRUE(gcore_verbose_set(VERBOSE_PAGEFAULT));
 	CU_ASSERT(gcore_verbose_error_handle() & QUIET);
-}
-
-static void gcore_tc_gcore_dumpfilter_set_default(void)
-{
-	CU_FAIL("Not implemented yet");
 }
 
 static void gcore_tc_gcore_dumpfilter_set(void)
