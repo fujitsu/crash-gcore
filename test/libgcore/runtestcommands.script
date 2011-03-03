@@ -1,4 +1,4 @@
 extend gcore.so
 extend test-gcore.so
-test_gcore_verbose
+test_gcore
 quit
