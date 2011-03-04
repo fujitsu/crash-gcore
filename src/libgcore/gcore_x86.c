@@ -1832,7 +1832,6 @@ static struct user_regset x86_64_regsets[] = {
                 .callback = xfpregs_callback
 	},
 	[REGSET_XSTATE] = {
-		.core_note_type = NT_X86_XSTATE,
 		.name = "CORE",
 		.size = sizeof(uint64_t),
 		.active = xstateregs_active,
@@ -2045,7 +2044,6 @@ static struct user_regset x86_32_regsets[] = {
                 .callback = xfpregs_callback,
 	},
 	[REGSET_XSTATE] = {
-		.core_note_type = NT_X86_XSTATE,
 		.name = "CORE",
 		.active = xstateregs_active, .get = xstateregs_get,
 	},
