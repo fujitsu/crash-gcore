@@ -2052,7 +2052,7 @@ static struct user_regset x86_32_regsets[] = {
 		.active = xfpregs_active, .get = xfpregs_get,
 	},
 	[REGSET_TLS] = {
-		.core_note_type = NT_386_TLS,
+//		.core_note_type = NT_386_TLS,
 		.name = "CORE",
 		.size = GDT_ENTRY_TLS_ENTRIES * sizeof(struct user_desc),
 		.active = regset_tls_active,
