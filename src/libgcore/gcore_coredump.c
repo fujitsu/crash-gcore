@@ -536,8 +536,10 @@ fill_note_info(struct elf_note_info *info, struct thread_group_list *tglist,
 	    view->regsets[0].core_note_type != NT_PRSTATUS)
 		error(FATAL, "regset 0 is _not_ NT_PRSTATUS\n");
 
-	gcore->elf->ops->fill_elf_header(gcore->elf, phnum, view->e_machine,
-					 view->e_flags, view->ei_osabi);
+	gcore->elf->ops->fill_elf_header(gcore->elf,
+					 phnum < PN_XNUM ? phnum : PN_XNUM,
+					 view->e_machine, view->e_flags,
+					 view->ei_osabi);
 
 	if (gcore->elf->ops->get_e_shoff(gcore->elf))
 		gcore->elf->ops->fill_section_header(gcore->elf, phnum);

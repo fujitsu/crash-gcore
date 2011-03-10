@@ -34,12 +34,20 @@ elf64_fill_elf_header(struct gcore_elf_struct *this, uint16_t e_phnum,
 	e->e_ident[EI_OSABI] = ei_osabi;
 	e->e_ehsize = sizeof(Elf64_Ehdr);
 	e->e_phentsize = sizeof(Elf64_Phdr);
-	e->e_phnum = e_phnum >= PN_XNUM ? PN_XNUM : e_phnum;
+	e->e_phnum = e_phnum;
+	e->e_phoff = e->e_ehsize;
 	e->e_type = ET_CORE;
 	e->e_machine = e_machine;
 	e->e_version = EV_CURRENT;
-	e->e_phoff = e->e_ehsize + e->e_shentsize * e->e_shnum;
 	e->e_flags = e_flags;
+
+	if (e_phnum == PN_XNUM) {
+		e->e_shoff = sizeof(Elf64_Ehdr);
+		e->e_shentsize = sizeof(Elf64_Shdr);
+		e->e_shnum = 1;
+		e->e_shstrndx = SHN_UNDEF;
+		e->e_phoff = e->e_shoff + e->e_shentsize * e->e_shnum;
+	}
 }
 
 static void
@@ -213,12 +221,20 @@ elf32_fill_elf_header(struct gcore_elf_struct *this, uint16_t e_phnum,
 	e->e_ident[EI_OSABI] = ei_osabi;
 	e->e_ehsize = sizeof(Elf32_Ehdr);
 	e->e_phentsize = sizeof(Elf32_Phdr);
-	e->e_phnum = e_phnum >= PN_XNUM ? PN_XNUM : e_phnum;
+	e->e_phnum = e_phnum;
 	e->e_type = ET_CORE;
 	e->e_machine = e_machine;
 	e->e_version = EV_CURRENT;
-	e->e_phoff = e->e_ehsize + e->e_shentsize * e->e_shnum;
+	e->e_phoff = e->e_ehsize;
 	e->e_flags = e_flags;
+
+	if (e_phnum == PN_XNUM) {
+		e->e_shoff = sizeof(Elf32_Ehdr);
+		e->e_shentsize = sizeof(Elf32_Shdr);
+		e->e_shnum = 1;
+		e->e_shstrndx = SHN_UNDEF;
+		e->e_phoff = e->e_shoff + e->e_shentsize * e->e_shnum;
+	}
 }
 
 static void
