@@ -28,6 +28,10 @@ struct compat_timeval {
 	int32_t	tv_usec;
 };
 
+#ifdef X86_64
 typedef struct user_regs_struct32 compat_elf_gregset_t;
+#else
+typedef struct user_regs_struct compat_elf_gregset_t;
+#endif
 
 #endif /* GCORE_COMPAT_X86_H_ */

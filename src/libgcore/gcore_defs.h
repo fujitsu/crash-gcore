@@ -352,6 +352,7 @@ struct user_regs_struct {
 	unsigned long	fs;
 	unsigned long	gs;
 };
+#endif
 
 struct user_regs_struct32 {
 	uint32_t ebx, ecx, edx, esi, edi, ebp, eax;
@@ -362,7 +363,6 @@ struct user_regs_struct32 {
 	uint32_t eflags, esp;
 	unsigned short ss, __ss;
 };
-#endif
 
 #ifdef X86
 struct user_regs_struct {
