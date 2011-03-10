@@ -498,15 +498,16 @@ static struct elf_note_info *elf_note_info_init(void)
 
 	info = (struct elf_note_info *)GETBUF(sizeof(*info));
 
-	if (BITS32() || gcore_is_arch_32bit_emulation(CURRENT_CONTEXT())) {
+	if (gcore_is_arch_32bit_emulation(CURRENT_CONTEXT())) {
 		info->fill_prstatus_note = compat_fill_prstatus_note;
 		info->fill_psinfo_note = compat_fill_psinfo_note;
 		info->fill_auxv_note = compat_fill_auxv_note;
-	} else {
-		info->fill_prstatus_note = fill_prstatus_note;
-		info->fill_psinfo_note = fill_psinfo_note;
-		info->fill_auxv_note = fill_auxv_note;
+		return info;
 	}
+
+	info->fill_prstatus_note = fill_prstatus_note;
+	info->fill_psinfo_note = fill_psinfo_note;
+	info->fill_auxv_note = fill_auxv_note;
 
 	return info;
 }
