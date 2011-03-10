@@ -22,8 +22,6 @@ static void gcore_offset_table_init(void);
 static void gcore_size_table_init(void);
 
 static void do_gcore(char *arg);
-static void do_setup_gcore(struct task_context *tc);
-static void do_clean_gcore(void);
 
 static struct command_table_entry command_table[] = {
 	{ "gcore", cmd_gcore, help_gcore, 0 },
@@ -275,6 +273,8 @@ static void do_gcore(char *arg)
 		struct task_context *tc;
 		ulong dummy;
 
+		BZERO(gcore, sizeof(struct gcore_one_session_data));
+
 		pc->flags |= IN_FOREACH;
 
 		if (arg) {
@@ -291,53 +291,34 @@ static void do_gcore(char *arg)
 		if (is_kernel_thread(tc->task))
 			error(FATAL, "The specified task is a kernel thread.\n");
 
-		do_setup_gcore(tc);
+		if (tc != CURRENT_CONTEXT()) {
+			gcore->orig = CURRENT_CONTEXT();
+			(void) set_context(tc->task, tc->pid);
+		}
+
+		snprintf(gcore->corename, CORENAME_MAX_SIZE + 1, "core.%lu.%s",
+			 task_tgid(CURRENT_TASK()), CURRENT_COMM());
+
+		gcore_elf_init(gcore);
+
 		gcore_coredump();
 	}
+
 	pc->flags &= ~IN_FOREACH;
-	do_clean_gcore();
-}
 
-/**
- * do_setup_gcore - initialize resources used for process core dump
- *
- * @tc task context object to be dumped from now on
- *
- * The resources used for process core dump is characterized by struct
- * gcore_data. Look carefully at the definition.
- */
-static void do_setup_gcore(struct task_context *tc)
-{
-	gcore->flags = 0UL;
-	gcore->fd = 0;
-	gcore->orig = NULL;
-
-	if (tc != CURRENT_CONTEXT()) {
-		gcore->orig = CURRENT_CONTEXT();
-		(void) set_context(tc->task, tc->pid);
-	}
-
-	snprintf(gcore->corename, CORENAME_MAX_SIZE + 1, "core.%lu.%s",
-		 task_tgid(CURRENT_TASK()), CURRENT_COMM());
-
-	gcore_elf_init(gcore);
-}
-
-/**
- * do_clean_gcore - clean up resources used for process core dump
- */
-static void do_clean_gcore(void)
-{
 	if (gcore->fd > 0)
 		close(gcore->fd);
+
 	if (gcore->flags & GCF_UNDER_COREDUMP) {
 		if (gcore->flags & GCF_SUCCESS)
 			fprintf(fp, "Saved %s\n", gcore->corename);
 		else
 			fprintf(fp, "Failed.\n");
 	}
+
 	if (gcore->orig)
 		(void)set_context(gcore->orig->task, gcore->orig->pid);
+
 }
 
 static void gcore_offset_table_init(void)
