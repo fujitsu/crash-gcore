@@ -1823,7 +1823,7 @@ static struct user_regset x86_64_regsets[] = {
 	},
 	[REGSET_FP] = {
 		.core_note_type = NT_FPREGSET,
-		.name = "LINUX",
+		.name = "CORE",
 		.size = sizeof(struct user_i387_struct),
 		.active = xfpregs_active,
 		.get = xfpregs_get,
@@ -2036,7 +2036,7 @@ static struct user_regset x86_32_regsets[] = {
 	},
 	[REGSET_FP] = {
 		.core_note_type = NT_FPREGSET,
-		.name = "LINUX",
+		.name = "CORE",
 		.size = sizeof(struct user_i387_ia32_struct),
 		.active = fpregs_active, .get = fpregs_get,
                 .callback = xfpregs_callback,
@@ -2047,7 +2047,7 @@ static struct user_regset x86_32_regsets[] = {
 	},
 	[REGSET_XFP] = {
 		.core_note_type = NT_PRXFPREG,
-		.name = "CORE",
+		.name = "LINUX",
 		.size = sizeof(struct user32_fxsr_struct),
 		.active = xfpregs_active, .get = xfpregs_get,
 	},
