@@ -710,10 +710,8 @@ xstateregs_get(struct task_context *target,
  */
 #define X86_EFLAGS_TF   0x00000100 /* Trap Flag */
 
-#ifdef X86_64
-#define __USER_CS       0x23
-#define __USER_DS       0x2B
-#endif
+#define __USER_DS 0x2b
+#define __USER_CS 0x33
 
 /*
  * thread information flags
