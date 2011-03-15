@@ -1836,7 +1836,7 @@ static struct user_regset x86_64_regsets[] = {
 		.get = xstateregs_get,
 	},
 	[REGSET_IOPERM64] = {
-		.core_note_type = NT_386_IOPERM,
+//		.core_note_type = NT_386_IOPERM,
 		.name = "CORE",
 		.size = IO_BITMAP_LONGS * sizeof(long),
 		.active = ioperm_active,
@@ -2059,7 +2059,7 @@ static struct user_regset x86_32_regsets[] = {
 		.get = regset_tls_get,
 	},
 	[REGSET_IOPERM32] = {
-		.core_note_type = NT_386_IOPERM,
+//		.core_note_type = NT_386_IOPERM,
 		.name = "CORE",
 		.size = IO_BITMAP_BYTES,
 		.active = ioperm_active, .get = ioperm_get
