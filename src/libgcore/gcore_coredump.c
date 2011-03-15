@@ -869,7 +869,7 @@ fill_auxv_note(struct elf_note_info *info, ulong task)
 	i = 0;
 	do
 		i += 2;
-	while (auxv[i] != AT_NULL);
+	while (auxv[i - 2] != AT_NULL);
 
 	fill_note(note, "CORE", NT_AUXV, i * sizeof(ulong), auxv);
 
@@ -892,7 +892,7 @@ compat_fill_auxv_note(struct elf_note_info *info, ulong task)
 	i = 0;
 	do
 		i += 2;
-	while (auxv[i] != AT_NULL);
+	while (auxv[i - 2] != AT_NULL);
 
 	fill_note(note, "CORE", NT_AUXV, i * sizeof(uint32_t), auxv);
 }
