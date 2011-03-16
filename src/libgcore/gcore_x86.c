@@ -98,10 +98,10 @@ enum gcore_regset {
 	REGSET_GENERAL,
 	REGSET_FP,
 	REGSET_XFP,
-	REGSET_XSTATE,
-	REGSET_IOPERM64,
+	REGSET_IOPERM64 = REGSET_XFP,
 	REGSET_TLS,
 	REGSET_IOPERM32,
+	REGSET_XSTATE,
 };
 
 #define NT_386_TLS      0x200           /* i386 TLS slots (struct user_desc) */
@@ -1836,7 +1836,7 @@ static struct user_regset x86_64_regsets[] = {
 		.get = xstateregs_get,
 	},
 	[REGSET_IOPERM64] = {
-//		.core_note_type = NT_386_IOPERM,
+		.core_note_type = NT_386_IOPERM,
 		.name = "CORE",
 		.size = IO_BITMAP_LONGS * sizeof(long),
 		.active = ioperm_active,
@@ -2052,14 +2052,14 @@ static struct user_regset x86_32_regsets[] = {
 		.active = xfpregs_active, .get = xfpregs_get,
 	},
 	[REGSET_TLS] = {
-//		.core_note_type = NT_386_TLS,
+		.core_note_type = NT_386_TLS,
 		.name = "CORE",
 		.size = GDT_ENTRY_TLS_ENTRIES * sizeof(struct user_desc),
 		.active = regset_tls_active,
 		.get = regset_tls_get,
 	},
 	[REGSET_IOPERM32] = {
-//		.core_note_type = NT_386_IOPERM,
+		.core_note_type = NT_386_IOPERM,
 		.name = "CORE",
 		.size = IO_BITMAP_BYTES,
 		.active = ioperm_active, .get = ioperm_get
