@@ -829,7 +829,7 @@ ioperm_active(struct task_context *target,
 		&io_bitmap_max, sizeof(io_bitmap_max),
 		"ioperm_active: io_bitmap_max", gcore_verbose_error_handle());
 
-	return io_bitmap_max / regset->size;
+	return !!io_bitmap_max;
 }
 
 static int ioperm_get(struct task_context *target,
