@@ -812,6 +812,8 @@ struct gcore_offset_table
 struct gcore_size_table
 {
 	long mm_struct_saved_auxv;
+	long thread_struct_ds;
+	long thread_struct_es;
 	long thread_struct_fs;
 	long thread_struct_fsindex;
 	long thread_struct_gs;
