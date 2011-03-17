@@ -1101,6 +1101,12 @@ restore_segment_registers(ulong task, struct user_regs_struct *regs)
 		gcore_verbose_error_handle());
 
 	readmem(task + OFFSET(task_struct_thread) +
+		GCORE_OFFSET(thread_struct_ds), KVADDR, &regs->ds,
+		GCORE_SIZE(thread_struct_ds),
+		"restore_segment_registers: ds",
+		gcore_verbose_error_handle());
+
+	readmem(task + OFFSET(task_struct_thread) +
 		GCORE_OFFSET(thread_struct_es), KVADDR, &regs->es,
 		GCORE_SIZE(thread_struct_es),
 		"restore_segment_registers: es",
