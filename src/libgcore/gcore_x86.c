@@ -1015,7 +1015,8 @@ user_mode(const struct user_regs_struct *regs)
 static int
 test_tsk_thread_flag(ulong task, int bit)
 {
-	ulong thread_info, flags;
+	uint32_t flags;
+	ulong thread_info;
 
 	thread_info = task_to_thread_info(task);
 
