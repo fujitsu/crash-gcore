@@ -452,6 +452,8 @@ static void gcore_size_table_init(void)
 {
 	GCORE_STRUCT_SIZE_INIT(i387_union, "i387_union");
 	GCORE_MEMBER_SIZE_INIT(mm_struct_saved_auxv, "mm_struct", "saved_auxv");
+	GCORE_MEMBER_SIZE_INIT(thread_struct_ds, "thread_struct", "ds");
+	GCORE_MEMBER_SIZE_INIT(thread_struct_es, "thread_struct", "es");
 	GCORE_MEMBER_SIZE_INIT(thread_struct_fs, "thread_struct", "fs");
 	GCORE_MEMBER_SIZE_INIT(thread_struct_fsindex, "thread_struct", "fsindex");
 	GCORE_MEMBER_SIZE_INIT(thread_struct_gs, "thread_struct", "gs");
