@@ -1106,6 +1106,14 @@ restore_segment_registers(ulong task, struct user_regs_struct *regs)
 		"restore_segment_registers: es",
 		gcore_verbose_error_handle());
 
+	regs->flags &= 0xffff;
+	regs->fs_base &= 0xffff;
+	regs->gs_base &= 0xffff;
+	regs->ds &= 0xffff;
+	regs->es &= 0xffff;
+	regs->fs &= 0xffff;
+	regs->gs &= 0xffff;
+
 }
 
 /**
