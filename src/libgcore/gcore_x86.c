@@ -1089,17 +1089,20 @@ restore_segment_registers(ulong task, struct user_regs_struct *regs)
 
 	readmem(task + OFFSET(task_struct_thread) +
 		GCORE_OFFSET(thread_struct_fsindex), KVADDR, &regs->fs,
-		sizeof(regs->fs), "restore_segment_registers: fsindex",
+		GCORE_SIZE(thread_struct_fsindex),
+		"restore_segment_registers: fsindex",
 		gcore_verbose_error_handle());
 
 	readmem(task + OFFSET(task_struct_thread) +
 		GCORE_OFFSET(thread_struct_gsindex), KVADDR, &regs->gs,
-		sizeof(regs->gs), "restore_segment_registers: gsindex",
+		GCORE_SIZE(thread_struct_gsindex),
+		"restore_segment_registers: gsindex",
 		gcore_verbose_error_handle());
 
 	readmem(task + OFFSET(task_struct_thread) +
 		GCORE_OFFSET(thread_struct_es), KVADDR, &regs->es,
-		sizeof(regs->es), "restore_segment_registers: es",
+		GCORE_SIZE(thread_struct_es),
+		"restore_segment_registers: es",
 		gcore_verbose_error_handle());
 
 }
