@@ -50,7 +50,6 @@ static void write_note_info(int fd, struct elf_note_info *info, off_t *foffset);
 static size_t get_note_info_size(struct elf_note_info *info);
 static ulong first_vma(ulong mmap, ulong gate_vma);
 static ulong next_vma(ulong this_vma, ulong gate_vma);
-static off_t calc_segment_offset(struct gcore_elf_struct *elf);
 
 static inline int thread_group_leader(ulong task);
 
@@ -112,7 +111,7 @@ void gcore_coredump(void)
 		progressf("done.\n");
 	}
 
-	offset = calc_segment_offset(gcore->elf);
+	offset = gcore->elf->ops->calc_segment_offset(gcore->elf);
 	foffset = offset;
 
 	progressf("Writing PT_NOTE program header ... \n");
@@ -213,31 +212,6 @@ void gcore_coredump(void)
 
 	gcore->flags |= GCF_SUCCESS;
 
-}
-
-/**
- * Calculate a file-offset of segment.
- *
- * Assume elf structures have already been filled with data.
- */
-static off_t calc_segment_offset(struct gcore_elf_struct *elf)
-{
-	off_t eh_size, sht_size, pht_size;
-
-	eh_size = gcore->elf->ops->get_e_ehsize(gcore->elf);
-
-	if (gcore->elf->ops->get_e_shoff(gcore->elf)) {
-		sht_size = gcore->elf->ops->get_e_shnum(gcore->elf)
-			* gcore->elf->ops->get_e_shentsize(gcore->elf);
-		pht_size = gcore->elf->ops->get_sh_info(gcore->elf)
-			* gcore->elf->ops->get_e_phentsize(gcore->elf);
-	} else {
-		sht_size = 0;
-		pht_size = gcore->elf->ops->get_e_phnum(gcore->elf)
-			* gcore->elf->ops->get_e_phentsize(gcore->elf);
-	}
-
-	return eh_size + sht_size + pht_size;
 }
 
 static inline int
