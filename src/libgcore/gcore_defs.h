@@ -904,6 +904,8 @@ struct gcore_elf_operations
 	uint32_t (*get_sh_info)(struct gcore_elf_struct *this);
 
 	size_t (*get_note_header_size)(struct gcore_elf_struct *this);
+
+	off_t (*calc_segment_offset)(struct gcore_elf_struct *this);
 };
 
 struct gcore_elf_struct
