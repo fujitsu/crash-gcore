@@ -211,6 +211,8 @@ struct gcore_elf_operations gcore_elf64_operations = {
 	.get_sh_info = elf64_get_sh_info,
 
 	.get_note_header_size = elf64_get_note_header_size,
+
+	.calc_segment_offset = elf64_calc_segment_offset,
 };
 
 const struct gcore_elf_operations *gcore_elf64_get_operations(void)
@@ -410,6 +412,8 @@ struct gcore_elf_operations gcore_elf32_operations = {
 	.get_sh_info = elf32_get_sh_info,
 
 	.get_note_header_size = elf32_get_note_header_size,
+
+	.calc_segment_offset = elf32_calc_segment_offset,
 };
 
 const struct gcore_elf_operations *gcore_elf32_get_operations(void)
