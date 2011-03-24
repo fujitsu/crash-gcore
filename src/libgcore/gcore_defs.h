@@ -886,17 +886,7 @@ struct gcore_elf_operations
 	int (*write_note_header)(struct gcore_elf_struct *this, int fd,
 				 off_t *offset);
 
-	/**
-	 * Get fields of the ELF header. Because e_shoff in 32-bit is
-	 * uint32_t while that in 64-bit is uint64_t, bigger enough
-	 * has been choosed here. Any other has fixed uint16_t length.
-	 */
 	uint64_t (*get_e_shoff)(struct gcore_elf_struct *this);
-	uint16_t (*get_e_ehsize)(struct gcore_elf_struct *this);
-	uint16_t (*get_e_phentsize)(struct gcore_elf_struct *this);
-	uint16_t (*get_e_phnum)(struct gcore_elf_struct *this);
-	uint16_t (*get_e_shentsize)(struct gcore_elf_struct *this);
-	uint16_t (*get_e_shnum)(struct gcore_elf_struct *this);
 
 	/**
 	 * Get fields of section header.
