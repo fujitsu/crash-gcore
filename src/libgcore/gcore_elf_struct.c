@@ -178,6 +178,18 @@ static size_t elf64_get_note_header_size(struct gcore_elf_struct *this)
 	return sizeof(((struct gcore_elf64_struct *)this)->nhdr);
 }
 
+static off_t elf64_calc_segment_offset(struct gcore_elf_struct *this)
+{
+	Elf64_Ehdr *e = &((struct gcore_elf64_struct *)this)->ehdr;
+	Elf64_Shdr *s = &((struct gcore_elf64_struct *)this)->shdr;
+
+	if (e->e_shoff)
+		return e->e_ehsize + e->e_shnum * e->e_shentsize
+			+ s->sh_info * e->e_phentsize;
+	else
+		return e->e_ehsize + e->e_phnum * e->e_phentsize;
+}
+
 struct gcore_elf_operations gcore_elf64_operations = {
 	.fill_elf_header = elf64_fill_elf_header,
 	.fill_section_header = elf64_fill_section_header,
@@ -363,6 +375,18 @@ static uint32_t elf32_get_sh_info(struct gcore_elf_struct *this)
 static size_t elf32_get_note_header_size(struct gcore_elf_struct *this)
 {
 	return sizeof(((struct gcore_elf32_struct *)this)->nhdr);
+}
+
+static off_t elf32_calc_segment_offset(struct gcore_elf_struct *this)
+{
+	Elf32_Ehdr *e = &((struct gcore_elf32_struct *)this)->ehdr;
+	Elf32_Shdr *s = &((struct gcore_elf32_struct *)this)->shdr;
+
+	if (e->e_shoff)
+		return e->e_ehsize + e->e_shnum * e->e_shentsize
+			+ s->sh_info * e->e_phentsize;
+	else
+		return e->e_ehsize + e->e_phnum * e->e_phentsize;
 }
 
 struct gcore_elf_operations gcore_elf32_operations = {
