@@ -20,13 +20,15 @@ static struct elf_note_info *elf_note_info_init(void);
 
 static void fill_prstatus_note(struct elf_note_info *info,
 			       struct elf_thread_core_info *t,
-			       const struct thread_group_list *tglist);
+			       const struct thread_group_list *tglist,
+			       void *pr_reg);
 static void fill_psinfo_note(struct elf_note_info *info, ulong task);
 static void fill_auxv_note(struct elf_note_info *info, ulong task);
 
 static void compat_fill_prstatus_note(struct elf_note_info *info,
-			       struct elf_thread_core_info *t,
-			       const struct thread_group_list *tglist);
+				      struct elf_thread_core_info *t,
+				      const struct thread_group_list *tglist,
+				      void *pr_reg);
 static void compat_fill_psinfo_note(struct elf_note_info *info, ulong task);
 static void compat_fill_auxv_note(struct elf_note_info *info, ulong task);
 
@@ -443,24 +445,17 @@ fill_thread_core_info(struct elf_thread_core_info *t,
 		      struct thread_group_list *tglist)
 {
 	unsigned int i;
+	char *pr_reg_buf;
 
 	/* NT_PRSTATUS is the one special case, because the regset data
 	 * goes into the pr_reg field inside the note contents, rather
          * than being the whole note contents.  We fill the reset in here.
          * We assume that regset 0 is NT_PRSTATUS.
          */
-	info->fill_prstatus_note(info, t, tglist);
-	if (BITS32() || gcore_is_arch_32bit_emulation(CURRENT_CONTEXT())) {
-		view->regsets[0].get(task_to_context(t->task),
-				     &view->regsets[0],
-				     sizeof(t->prstatus.v32.pr_reg),
-				     &t->prstatus.v32.pr_reg);
-	} else {
-		view->regsets[0].get(task_to_context(t->task),
-				     &view->regsets[0],
-				     sizeof(t->prstatus.v64.pr_reg),
-				     &t->prstatus.v64.pr_reg);
-	}
+	pr_reg_buf = GETBUF(view->regsets[0].size);
+	view->regsets[0].get(task_to_context(t->task), &view->regsets[0],
+			     view->regsets[0].size, pr_reg_buf);
+	info->fill_prstatus_note(info, t, tglist, pr_reg_buf);
         *total += notesize(&t->notes[0]);
 
 	if (view->regsets[0].writeback)
@@ -700,10 +695,12 @@ static ulong next_vma(ulong this_vma, ulong gate_vma)
 
 static void
 fill_prstatus_note(struct elf_note_info *info, struct elf_thread_core_info *t,
-		   const struct thread_group_list *tglist)
+		   const struct thread_group_list *tglist, void *pr_reg)
 {
 	ulong pending_signal_sig0, blocked_sig0, real_parent, group_leader,
 		signal, cutime,	cstime;
+
+	memcpy(&t->prstatus.v64.pr_reg, pr_reg, sizeof(t->prstatus.v64.pr_reg));
 
         fill_note(&t->notes[0], "CORE", NT_PRSTATUS, sizeof(t->prstatus.v64),
 		  &t->prstatus.v64);
@@ -777,10 +774,13 @@ fill_prstatus_note(struct elf_note_info *info, struct elf_thread_core_info *t,
 static void
 compat_fill_prstatus_note(struct elf_note_info *info,
 			  struct elf_thread_core_info *t,
-			  const struct thread_group_list *tglist)
+			  const struct thread_group_list *tglist,
+			  void *pr_reg)
 {
 	ulong pending_signal_sig0, blocked_sig0, real_parent, group_leader,
 		signal, cutime,	cstime;
+
+	memcpy(&t->prstatus.v32.pr_reg, pr_reg, sizeof(t->prstatus.v32.pr_reg));
 
         fill_note(&t->notes[0], "CORE", NT_PRSTATUS,
                   sizeof(t->prstatus.v32), &t->prstatus.v32);
