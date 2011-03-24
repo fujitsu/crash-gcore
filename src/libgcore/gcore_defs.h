@@ -690,7 +690,8 @@ struct elf_thread_core_info {
 struct elf_note_info {
 	void (*fill_prstatus_note)(struct elf_note_info *info,
 				   struct elf_thread_core_info *t,
-				   const struct thread_group_list *tglist);
+				   const struct thread_group_list *tglist,
+				   void *pr_reg);
 	void (*fill_psinfo_note)(struct elf_note_info *info, ulong task);
 	void (*fill_auxv_note)(struct elf_note_info *info, ulong task);
 	struct elf_thread_core_info *thread;
