@@ -1257,14 +1257,12 @@ static inline void restore_rest(ulong task, struct pt_regs *regs,
 	 * under investigation.
 	 *
 	 */
-	first_frame = TRUE;
+	first_frame = FALSE;
 
-	while (!unwind(&frame, is_ehframe)) {
-		if (first_frame)
-			first_frame = FALSE;
-	}
+	while (!unwind(&frame, is_ehframe))
+		first_frame = TRUE;
 
-	if (!first_frame) {
+	if (first_frame) {
 		regs->r12 = frame.regs.r12;
 		regs->r13 = frame.regs.r13;
 		regs->r14 = frame.regs.r14;
