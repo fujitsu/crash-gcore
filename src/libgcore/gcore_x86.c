@@ -1250,6 +1250,12 @@ static inline void restore_rest(ulong task, struct pt_regs *regs,
 
 	/*
 	 * Unwind to the first stack frame in kernel.
+	 *
+	 * Object files built with recent tools contain Dwarf CFI
+	 * version 3 or later, and dwarf unwinder in crash utility
+	 * supports version 1 only; doesn't version 3 and later. It's
+	 * under investigation.
+	 *
 	 */
 	first_frame = TRUE;
 
