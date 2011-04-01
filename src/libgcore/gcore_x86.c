@@ -1485,18 +1485,18 @@ static int get_active_regs(struct task_context *target,
 	return FALSE;
 }
 
-enum gcore_context
+enum gcore_kernel_entry
 {
-	GCORE_CONTEXT_UNKNOWN = 0,
-	GCORE_CONTEXT_INVALID_VECTOR,
-	GCORE_CONTEXT_NMI_EXCEPTION,
-	GCORE_CONTEXT_INTEL_RESERVED,
-	GCORE_CONTEXT_IRQ,
-	GCORE_CONTEXT_SYSCALL,
-	GCORE_CONTEXT_SYSENTER32,
-	GCORE_CONTEXT_SYSCALL32,
-	GCORE_CONTEXT_INT80,
-	GCORE_CONTEXT_IA32_UNKNOWN
+	GCORE_KERNEL_ENTRY_UNKNOWN = 0,
+	GCORE_KERNEL_ENTRY_INVALID_VECTOR,
+	GCORE_KERNEL_ENTRY_NMI_EXCEPTION,
+	GCORE_KERNEL_ENTRY_INTEL_RESERVED,
+	GCORE_KERNEL_ENTRY_IRQ,
+	GCORE_KERNEL_ENTRY_SYSCALL,
+	GCORE_KERNEL_ENTRY_SYSENTER32,
+	GCORE_KERNEL_ENTRY_SYSCALL32,
+	GCORE_KERNEL_ENTRY_INT80,
+	GCORE_KERNEL_ENTRY_IA32_UNKNOWN
 };
 
 enum {
@@ -1532,8 +1532,8 @@ static const unsigned char GCORE_OPCODE_INT80[] = {0xcd, 0x80};
  * @target target task context object
  * @regs pt_regs structure at the bottom of @target's kernel stack
  */
-static enum gcore_context
-check_context(struct task_context *target, struct pt_regs *regs)
+static enum gcore_kernel_entry
+check_kernel_entry(struct task_context *target, struct pt_regs *regs)
 {
 	/*
 	 * regs->orig_ax contains either a signal number or an IRQ
@@ -1545,40 +1545,40 @@ check_context(struct task_context *target, struct pt_regs *regs)
 		unsigned char opcode[GCORE_SYSCALL_OPCODE_BYTES];
 
 		if (!gcore_is_arch_32bit_emulation(target))
-			return GCORE_CONTEXT_SYSCALL;
+			return GCORE_KERNEL_ENTRY_SYSCALL;
 
 		if (!uvtop(target, regs->rip - sizeof(opcode), &paddr, FALSE))
-			return GCORE_CONTEXT_IA32_UNKNOWN;
+			return GCORE_KERNEL_ENTRY_IA32_UNKNOWN;
 			
 		readmem(paddr, PHYSADDR, opcode, sizeof(opcode),
 			"check_context: opcode", gcore_verbose_error_handle());
 
 		if (memcmp(opcode, GCORE_OPCODE_SYSCALL, sizeof(opcode)) == 0)
-			return GCORE_CONTEXT_SYSCALL32;
+			return GCORE_KERNEL_ENTRY_SYSCALL32;
 
 		if (memcmp(opcode, GCORE_OPCODE_INT80, sizeof(opcode)) == 0)
-			return GCORE_CONTEXT_INT80;
+			return GCORE_KERNEL_ENTRY_INT80;
 
-		return GCORE_CONTEXT_SYSENTER32;
+		return GCORE_KERNEL_ENTRY_SYSENTER32;
 
 	} else {
 		const int vector = (int)~regs->orig_rax;
 
 		if (vector < 0 || vector > 255)
-			return GCORE_CONTEXT_INVALID_VECTOR;
+			return GCORE_KERNEL_ENTRY_INVALID_VECTOR;
 
 		if (vector < 20)
-			return GCORE_CONTEXT_NMI_EXCEPTION;
+			return GCORE_KERNEL_ENTRY_NMI_EXCEPTION;
 
 		if (vector < 32)
-			return GCORE_CONTEXT_INTEL_RESERVED;
+			return GCORE_KERNEL_ENTRY_INTEL_RESERVED;
 
 		if (vector < 256)
-			return GCORE_CONTEXT_IRQ;
+			return GCORE_KERNEL_ENTRY_IRQ;
 
 	}
 
-	return GCORE_CONTEXT_UNKNOWN;
+	return GCORE_KERNEL_ENTRY_UNKNOWN;
 }
 
 /**
@@ -1682,38 +1682,38 @@ static int genregs_get(struct task_context *target,
 		regs, SIZE(pt_regs), "genregs_get: pt_regs",
 		gcore_verbose_error_handle());
 
-	switch (check_context(target, (struct pt_regs *)regs)) {
-	case GCORE_CONTEXT_UNKNOWN:
+	switch (check_kernel_entry(target, (struct pt_regs *)regs)) {
+	case GCORE_KERNEL_ENTRY_UNKNOWN:
 		error(WARNING, "unknown kernel entry.\n");
 		break;
-	case GCORE_CONTEXT_INVALID_VECTOR: {
+	case GCORE_KERNEL_ENTRY_INVALID_VECTOR: {
 		const int vector = (int)regs->orig_ax;
 		error(WARNING, "unexpected IRQ number: %d.\n", vector);
 		break;
 	}
-	case GCORE_CONTEXT_INTEL_RESERVED: {
+	case GCORE_KERNEL_ENTRY_INTEL_RESERVED: {
 		const int vector = (int)regs->orig_ax;
 		error(WARNING, "IRQ number %d is reserved by Intel\n", vector);
 	}
 		break;
-	case GCORE_CONTEXT_NMI_EXCEPTION:
+	case GCORE_KERNEL_ENTRY_NMI_EXCEPTION:
 		restore_segment_registers(target->task, regs);
 		break;
-	case GCORE_CONTEXT_IA32_UNKNOWN:
+	case GCORE_KERNEL_ENTRY_IA32_UNKNOWN:
 		error(WARNING,
 		      "system call instruction used could not be found\n");
-	case GCORE_CONTEXT_IRQ:
-	case GCORE_CONTEXT_INT80:
+	case GCORE_KERNEL_ENTRY_IRQ:
+	case GCORE_KERNEL_ENTRY_INT80:
 		restore_rest(target->task, (struct pt_regs *)regs, &active_regs);
 		restore_segment_registers(target->task, regs);
 		break;
-	case GCORE_CONTEXT_SYSCALL:
+	case GCORE_KERNEL_ENTRY_SYSCALL:
 		restore_regs_syscall_context(target, regs, &active_regs);
 		break;
-	case GCORE_CONTEXT_SYSENTER32:
+	case GCORE_KERNEL_ENTRY_SYSENTER32:
 		restore_regs_sysenter32_context(target, regs, &active_regs);
 		break;
-	case GCORE_CONTEXT_SYSCALL32:
+	case GCORE_KERNEL_ENTRY_SYSCALL32:
 		restore_regs_syscall32_context(target, regs, &active_regs);
 		break;
 	}
