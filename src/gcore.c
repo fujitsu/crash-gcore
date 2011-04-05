@@ -292,8 +292,8 @@ static void do_gcore(char *arg)
 			error(FATAL, "The specified task is a kernel thread.\n");
 
 		if (tc != CURRENT_CONTEXT()) {
-			gcore->orig = CURRENT_CONTEXT();
-			(void) set_context(tc->task, tc->pid);
+			gcore->orig_task = CURRENT_TASK();
+			(void) set_context(tc->task, 0);
 		}
 
 		snprintf(gcore->corename, CORENAME_MAX_SIZE + 1, "core.%lu.%s",
@@ -316,8 +316,8 @@ static void do_gcore(char *arg)
 			fprintf(fp, "Failed.\n");
 	}
 
-	if (gcore->orig)
-		(void)set_context(gcore->orig->task, gcore->orig->pid);
+	if (gcore->orig_task)
+		(void)set_context(gcore->orig_task, 0);
 
 }
 
