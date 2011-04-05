@@ -373,9 +373,9 @@ static void xfpregs_callback(struct elf_thread_core_info *t,
 			    const struct user_regset *regset)
 {
 	if (BITS32() || gcore_is_arch_32bit_emulation(CURRENT_CONTEXT())) {
-		t->prstatus.v32.pr_fpvalid = 1;
+		t->prstatus.compat.pr_fpvalid = 1;
 	} else {
-		t->prstatus.v64.pr_fpvalid = 1;
+		t->prstatus.native.pr_fpvalid = 1;
 	}
 }
 
