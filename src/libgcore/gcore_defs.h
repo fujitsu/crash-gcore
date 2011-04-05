@@ -937,7 +937,7 @@ struct gcore_one_session_data
 {
 	ulong flags;
 	int fd;
-	struct task_context *orig;
+	ulong orig_task;
 	char corename[CORENAME_MAX_SIZE + 1];
 	struct gcore_elf_struct *elf;
 };
