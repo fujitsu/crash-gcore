@@ -1471,7 +1471,8 @@ static int get_active_regs(struct task_context *target,
 		return TRUE;
 	}
 
-	if (get_netdump_arch() != EM_NONE) {
+	if ((NETDUMP_DUMPFILE() && (target->task == tt->panic_task))
+	    || KDUMP_DUMPFILE()) {
 		struct user_regs_struct *note = get_regs_from_elf_notes(target);
 		memcpy(regs, note, sizeof(struct user_regs_struct));
 		return TRUE;
