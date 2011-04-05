@@ -16,7 +16,14 @@
 #define GCORE_DEFS_H_
 
 #include <elf.h>
+
+#ifdef X86_64
+#define GCORE_ARCH_COMPAT 1
+#endif
+
+#ifdef X86_64
 #include <gcore_compat_x86.h>
+#endif
 
 #define PN_XNUM 0xffff
 
@@ -511,6 +518,7 @@ cputime_to_timeval(const cputime_t cputime, struct timeval *value)
 	jiffies_to_timeval(cputime, value);
 }
 
+#ifdef GCORE_ARCH_COMPAT
 static inline void
 cputime_to_compat_timeval(const cputime_t cputime,
 			  struct compat_timeval *value)
@@ -520,6 +528,7 @@ cputime_to_compat_timeval(const cputime_t cputime,
 	value->tv_sec = tv.tv_sec;
 	value->tv_usec = tv.tv_usec;
 }
+#endif
 
 struct elf_prstatus
 {
@@ -621,6 +630,8 @@ struct elf_prpsinfo
         char    pr_psargs[ELF_PRARGSZ]; /* initial part of arg list */
 };
 
+#ifdef GCORE_ARCH_COMPAT
+
 struct compat_elf_siginfo
 {
 	compat_int_t			si_signo;
@@ -660,6 +671,8 @@ struct compat_elf_prpsinfo
 	char				pr_psargs[ELF_PRARGSZ];
 };
 
+#endif /* GCORE_ARCH_COMPAT */
+
 #define TASK_COMM_LEN 16
 
 #define	CORENAME_MAX_SIZE 128
@@ -682,7 +695,9 @@ struct elf_thread_core_info {
 	ulong task;
 	union prstatus {
 		struct elf_prstatus native;
+#ifdef GCORE_ARCH_COMPAT
 		struct compat_elf_prstatus compat;
+#endif
 	} prstatus;
 	struct memelfnote notes[0];
 };

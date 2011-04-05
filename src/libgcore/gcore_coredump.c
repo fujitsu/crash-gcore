@@ -25,12 +25,14 @@ static void fill_prstatus_note(struct elf_note_info *info,
 static void fill_psinfo_note(struct elf_note_info *info, ulong task);
 static void fill_auxv_note(struct elf_note_info *info, ulong task);
 
+#ifdef GCORE_ARCH_COMPAT
 static void compat_fill_prstatus_note(struct elf_note_info *info,
 				      struct elf_thread_core_info *t,
 				      const struct thread_group_list *tglist,
 				      void *pr_reg);
 static void compat_fill_psinfo_note(struct elf_note_info *info, ulong task);
 static void compat_fill_auxv_note(struct elf_note_info *info, ulong task);
+#endif
 
 static int fill_thread_group(struct thread_group_list **tglist);
 static void fill_thread_core_info(struct elf_thread_core_info *t,
@@ -342,6 +344,8 @@ fill_psinfo_note(struct elf_note_info *info, ulong task)
 
 }
 
+#ifdef GCORE_ARCH_COMPAT
+
 static void
 compat_fill_psinfo_note(struct elf_note_info *info, ulong task)
 {
@@ -412,6 +416,8 @@ compat_fill_psinfo_note(struct elf_note_info *info, ulong task)
 
 }
 
+#endif /* GCORE_ARCH_COMPAT */
+
 static void
 fill_thread_core_info(struct elf_thread_core_info *t,
 		      struct elf_note_info *info,
@@ -467,12 +473,14 @@ static struct elf_note_info *elf_note_info_init(void)
 
 	info = (struct elf_note_info *)GETBUF(sizeof(*info));
 
+#ifdef GCORE_ARCH_COMPAT
 	if (gcore_is_arch_32bit_emulation(CURRENT_CONTEXT())) {
 		info->fill_prstatus_note = compat_fill_prstatus_note;
 		info->fill_psinfo_note = compat_fill_psinfo_note;
 		info->fill_auxv_note = compat_fill_auxv_note;
 		return info;
 	}
+#endif
 
 	info->fill_prstatus_note = fill_prstatus_note;
 	info->fill_psinfo_note = fill_psinfo_note;
@@ -745,6 +753,8 @@ fill_prstatus_note(struct elf_note_info *info, struct elf_thread_core_info *t,
 
 }
 
+#ifdef GCORE_ARCH_COMPAT
+
 static void
 compat_fill_prstatus_note(struct elf_note_info *info,
 			  struct elf_thread_core_info *t,
@@ -826,6 +836,8 @@ compat_fill_prstatus_note(struct elf_note_info *info,
 
 }
 
+#endif /* GCORE_ARCH_COMPAT */
+
 static void
 fill_auxv_note(struct elf_note_info *info, ulong task)
 {
@@ -849,6 +861,8 @@ fill_auxv_note(struct elf_note_info *info, ulong task)
 
 }
 
+#ifdef GCORE_ARCH_COMPAT
+
 static void
 compat_fill_auxv_note(struct elf_note_info *info, ulong task)
 {
@@ -870,3 +884,5 @@ compat_fill_auxv_note(struct elf_note_info *info, ulong task)
 
 	fill_note(note, "CORE", NT_AUXV, i * sizeof(uint32_t), auxv);
 }
+
+#endif /* GCORE_ARCH_COMPAT */
