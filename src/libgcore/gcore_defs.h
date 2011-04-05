@@ -681,8 +681,8 @@ struct elf_thread_core_info {
 	struct elf_thread_core_info *next;
 	ulong task;
 	union prstatus {
-		struct elf_prstatus v64;
-		struct compat_elf_prstatus v32;
+		struct elf_prstatus native;
+		struct compat_elf_prstatus compat;
 	} prstatus;
 	struct memelfnote notes[0];
 };

@@ -674,10 +674,10 @@ fill_prstatus_note(struct elf_note_info *info, struct elf_thread_core_info *t,
 	ulong pending_signal_sig0, blocked_sig0, real_parent, group_leader,
 		signal, cutime,	cstime;
 
-	memcpy(&t->prstatus.v64.pr_reg, pr_reg, sizeof(t->prstatus.v64.pr_reg));
+	memcpy(&t->prstatus.native.pr_reg, pr_reg, sizeof(t->prstatus.native.pr_reg));
 
-        fill_note(&t->notes[0], "CORE", NT_PRSTATUS, sizeof(t->prstatus.v64),
-		  &t->prstatus.v64);
+        fill_note(&t->notes[0], "CORE", NT_PRSTATUS, sizeof(t->prstatus.native),
+		  &t->prstatus.native);
 
         /* The type of (sig[0]) is unsigned long. */
 	readmem(t->task + OFFSET(task_struct_pending) + OFFSET(sigpending_signal),
@@ -697,13 +697,13 @@ fill_prstatus_note(struct elf_note_info *info, struct elf_thread_core_info *t,
 		&group_leader, sizeof(group_leader),
 		"fill_prstatus: group_leader", gcore_verbose_error_handle());
 
-	t->prstatus.v64.pr_info.si_signo = t->prstatus.v64.pr_cursig = 0;
-        t->prstatus.v64.pr_sigpend = pending_signal_sig0;
-        t->prstatus.v64.pr_sighold = blocked_sig0;
-        t->prstatus.v64.pr_ppid = ggt->task_pid(real_parent);
-        t->prstatus.v64.pr_pid = ggt->task_pid(t->task);
-        t->prstatus.v64.pr_pgrp = ggt->task_pgrp(t->task);
-        t->prstatus.v64.pr_sid = ggt->task_session(t->task);
+	t->prstatus.native.pr_info.si_signo = t->prstatus.native.pr_cursig = 0;
+        t->prstatus.native.pr_sigpend = pending_signal_sig0;
+        t->prstatus.native.pr_sighold = blocked_sig0;
+        t->prstatus.native.pr_ppid = ggt->task_pid(real_parent);
+        t->prstatus.native.pr_pid = ggt->task_pid(t->task);
+        t->prstatus.native.pr_pgrp = ggt->task_pgrp(t->task);
+        t->prstatus.native.pr_sid = ggt->task_session(t->task);
         if (thread_group_leader(t->task)) {
                 struct task_cputime cputime;
 
@@ -712,8 +712,8 @@ fill_prstatus_note(struct elf_note_info *info, struct elf_thread_core_info *t,
                  * group-wide total, not its individual thread total.
                  */
                 ggt->thread_group_cputime(t->task, tglist, &cputime);
-                cputime_to_timeval(cputime.utime, &t->prstatus.v64.pr_utime);
-                cputime_to_timeval(cputime.stime, &t->prstatus.v64.pr_stime);
+                cputime_to_timeval(cputime.utime, &t->prstatus.native.pr_utime);
+                cputime_to_timeval(cputime.stime, &t->prstatus.native.pr_stime);
         } else {
 		cputime_t utime, stime;
 
@@ -725,8 +725,8 @@ fill_prstatus_note(struct elf_note_info *info, struct elf_thread_core_info *t,
 			sizeof(stime), "task_struct stime",
 			gcore_verbose_error_handle());
 
-                cputime_to_timeval(utime, &t->prstatus.v64.pr_utime);
-                cputime_to_timeval(stime, &t->prstatus.v64.pr_stime);
+                cputime_to_timeval(utime, &t->prstatus.native.pr_utime);
+                cputime_to_timeval(stime, &t->prstatus.native.pr_stime);
         }
 
 	readmem(t->task + OFFSET(task_struct_signal), KVADDR, &signal,
@@ -740,8 +740,8 @@ fill_prstatus_note(struct elf_note_info *info, struct elf_thread_core_info *t,
 		&cstime, sizeof(cstime), "signal_struct cstime",
 		gcore_verbose_error_handle());
 
-        cputime_to_timeval(cutime, &t->prstatus.v64.pr_cutime);
-        cputime_to_timeval(cstime, &t->prstatus.v64.pr_cstime);
+        cputime_to_timeval(cutime, &t->prstatus.native.pr_cutime);
+        cputime_to_timeval(cstime, &t->prstatus.native.pr_cstime);
 
 }
 
@@ -754,10 +754,10 @@ compat_fill_prstatus_note(struct elf_note_info *info,
 	ulong pending_signal_sig0, blocked_sig0, real_parent, group_leader,
 		signal, cutime,	cstime;
 
-	memcpy(&t->prstatus.v32.pr_reg, pr_reg, sizeof(t->prstatus.v32.pr_reg));
+	memcpy(&t->prstatus.compat.pr_reg, pr_reg, sizeof(t->prstatus.compat.pr_reg));
 
         fill_note(&t->notes[0], "CORE", NT_PRSTATUS,
-                  sizeof(t->prstatus.v32), &t->prstatus.v32);
+                  sizeof(t->prstatus.compat), &t->prstatus.compat);
 
         /* The type of (sig[0]) is unsigned long. */
 	readmem(t->task + OFFSET(task_struct_pending) + OFFSET(sigpending_signal),
@@ -777,13 +777,13 @@ compat_fill_prstatus_note(struct elf_note_info *info,
 		&group_leader, sizeof(group_leader),
 		"fill_prstatus: group_leader", gcore_verbose_error_handle());
 
-	t->prstatus.v32.pr_info.si_signo = t->prstatus.v32.pr_cursig = 0;
-        t->prstatus.v32.pr_sigpend = pending_signal_sig0;
-        t->prstatus.v32.pr_sighold = blocked_sig0;
-        t->prstatus.v32.pr_ppid = ggt->task_pid(real_parent);
-        t->prstatus.v32.pr_pid = ggt->task_pid(t->task);
-        t->prstatus.v32.pr_pgrp = ggt->task_pgrp(t->task);
-        t->prstatus.v32.pr_sid = ggt->task_session(t->task);
+	t->prstatus.compat.pr_info.si_signo = t->prstatus.compat.pr_cursig = 0;
+        t->prstatus.compat.pr_sigpend = pending_signal_sig0;
+        t->prstatus.compat.pr_sighold = blocked_sig0;
+        t->prstatus.compat.pr_ppid = ggt->task_pid(real_parent);
+        t->prstatus.compat.pr_pid = ggt->task_pid(t->task);
+        t->prstatus.compat.pr_pgrp = ggt->task_pgrp(t->task);
+        t->prstatus.compat.pr_sid = ggt->task_session(t->task);
         if (thread_group_leader(t->task)) {
                 struct task_cputime cputime;
 
@@ -792,8 +792,8 @@ compat_fill_prstatus_note(struct elf_note_info *info,
                  * group-wide total, not its individual thread total.
                  */
                 ggt->thread_group_cputime(t->task, tglist, &cputime);
-                cputime_to_compat_timeval(cputime.utime, &t->prstatus.v32.pr_utime);
-                cputime_to_compat_timeval(cputime.stime, &t->prstatus.v32.pr_stime);
+                cputime_to_compat_timeval(cputime.utime, &t->prstatus.compat.pr_utime);
+                cputime_to_compat_timeval(cputime.stime, &t->prstatus.compat.pr_stime);
         } else {
 		cputime_t utime, stime;
 
@@ -805,8 +805,8 @@ compat_fill_prstatus_note(struct elf_note_info *info,
 			sizeof(stime), "task_struct stime",
 			gcore_verbose_error_handle());
 
-                cputime_to_compat_timeval(utime, &t->prstatus.v32.pr_utime);
-                cputime_to_compat_timeval(stime, &t->prstatus.v32.pr_stime);
+                cputime_to_compat_timeval(utime, &t->prstatus.compat.pr_utime);
+                cputime_to_compat_timeval(stime, &t->prstatus.compat.pr_stime);
         }
 
 	readmem(t->task + OFFSET(task_struct_signal), KVADDR, &signal,
@@ -821,8 +821,8 @@ compat_fill_prstatus_note(struct elf_note_info *info,
 		&cstime, sizeof(cstime), "signal_struct cstime",
 		gcore_verbose_error_handle());
 
-        cputime_to_compat_timeval(cutime, &t->prstatus.v32.pr_cutime);
-        cputime_to_compat_timeval(cstime, &t->prstatus.v32.pr_cstime);
+        cputime_to_compat_timeval(cutime, &t->prstatus.compat.pr_cutime);
+        cputime_to_compat_timeval(cstime, &t->prstatus.compat.pr_cstime);
 
 }
 
