@@ -192,7 +192,7 @@ cmd_gcore(void)
 	foptarg = voptarg = NULL;
 	optversion = FALSE;
 
-	while ((c = getopt(argcnt, args, "df:v:V")) != EOF) {
+	while ((c = getopt(argcnt, args, "f:v:V")) != EOF) {
 		switch (c) {
 		case 'V':
 			optversion = TRUE;
