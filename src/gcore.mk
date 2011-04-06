@@ -12,7 +12,7 @@
 # GNU General Public License for more details.
 #
 
-VERSION=1.0-rc1
+VERSION=1.0.0
 DATE=6 April 2011
 PERIOD=2010, 2011
 
