@@ -22,6 +22,7 @@ static void gcore_offset_table_init(void);
 static void gcore_size_table_init(void);
 
 static void do_gcore(char *arg);
+static void print_version(void);
 
 static struct command_table_entry command_table[] = {
 	{ "gcore", cmd_gcore, help_gcore, 0 },
@@ -88,6 +89,8 @@ char *help_gcore[] = {
 "        ELF ELF header pages in file-backed private memory areas",
 "        HP  Hugetlb Private Memory",
 "        HS  Hugetlb Shared Memory",
+" ",
+"    -V Display version information",
 "  ",
 "  If no pid or taskp is specified, gcore tries to retrieve the process image",
 "  of the current task context.",
@@ -178,6 +181,7 @@ void
 cmd_gcore(void)
 {
 	char c, *foptarg, *voptarg;
+	int optversion;
 
 	if (ACTIVE())
 		error(FATAL, "no support on live kernel");
@@ -186,10 +190,13 @@ cmd_gcore(void)
 	gcore_verbose_set_default();
 
 	foptarg = voptarg = NULL;
+	optversion = FALSE;
 
-	while ((c = getopt(argcnt, args, "df:v:")) != EOF) {
+	while ((c = getopt(argcnt, args, "df:v:V")) != EOF) {
 		switch (c) {
-
+		case 'V':
+			optversion = TRUE;
+			break;
 		case 'f':
 			if (foptarg)
 				goto argerr;
@@ -209,6 +216,11 @@ cmd_gcore(void)
 
 	if (argerrs) {
 		cmd_usage(pc->curcmd, SYNOPSIS);
+	}
+
+	if (optversion) {
+		print_version();
+		return;
 	}
 
 	if (foptarg) {
@@ -319,6 +331,14 @@ static void do_gcore(char *arg)
 	if (gcore->orig_task)
 		(void)set_context(gcore->orig_task, NO_PID);
 
+}
+
+static void print_version(void)
+{
+	fprintf(fp, "gcore extension module: version " VERSION " (released on "
+		RELEASE_DATE ")\n");
+	fprintf(fp, "Copyright (C) " PERIOD "  Fujitsu Limited\n");
+	fprintf(fp, "\n");
 }
 
 static void gcore_offset_table_init(void)
