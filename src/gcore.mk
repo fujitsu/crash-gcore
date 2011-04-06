@@ -12,6 +12,10 @@
 # GNU General Public License for more details.
 #
 
+VERSION=1.0-rc1
+DATE=6 April 2011
+PERIOD=2010, 2011
+
 ARCH=UNSUPPORTED
 
 ifeq ($(shell arch), i686)
@@ -51,7 +55,9 @@ endif
 
 GCORE_OFILES = $(patsubst %.c,%.o,$(GCORE_CFILES))
 
-COMMON_CFLAGS=-Wall -I$(INCDIR) -I./libgcore -fPIC -D$(TARGET)
+COMMON_CFLAGS=-Wall -I$(INCDIR) -I./libgcore -fPIC -D$(TARGET) \
+	-DVERSION='"$(VERSION)"' -DRELEASE_DATE='"$(DATE)"' \
+	-DPERIOD='"$(PERIOD)"'
 
 all: gcore.so
 
