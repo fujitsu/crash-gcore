@@ -15,7 +15,6 @@
 #if defined(X86) || defined(X86_64)
 
 #include "defs.h"
-#include "kvmdump.h"
 #ifdef X86_64
 #include "unwind_x86_64.h"
 #endif
@@ -1437,32 +1436,37 @@ static void
 get_regs_from_kvmdump_notes(struct task_context *target,
 			    struct user_regs_struct *regs)
 {
-	struct register_set *r = &kvm->registers[target->processor];
+	struct kvm_register_set krs;
 
-	regs->cs = r->cs;
-	regs->ss = r->ss;
-	regs->ds = r->ds;
-	regs->es = r->es;
-	regs->fs = r->fs;
-	regs->gs = r->gs;
-	regs->ip = r->ip;
-	regs->flags = r->flags;
-	regs->ax = r->regs[0];
-	regs->cx = r->regs[1];
-	regs->dx = r->regs[2];
-	regs->bx = r->regs[3];
-	regs->sp = r->regs[4];
-	regs->bp = r->regs[5];
-	regs->si = r->regs[6];
-	regs->di = r->regs[7];
-	regs->r8 = r->regs[8];
-	regs->r9 = r->regs[9];
-	regs->r10 = r->regs[10];
-	regs->r11 = r->regs[11];
-	regs->r12 = r->regs[12];
-	regs->r13 = r->regs[13];
-	regs->r14 = r->regs[14];
-	regs->r15 = r->regs[15];
+	BZERO(&krs, sizeof(krs));
+
+	if (!get_kvm_register_set(target->processor, &krs))
+		return;
+
+	regs->cs = krs.x86.cs;
+	regs->ss = krs.x86.ss;
+	regs->ds = krs.x86.ds;
+	regs->es = krs.x86.es;
+	regs->fs = krs.x86.fs;
+	regs->gs = krs.x86.gs;
+	regs->ip = krs.x86.ip;
+	regs->flags = krs.x86.flags;
+	regs->ax = krs.x86.regs[0];
+	regs->cx = krs.x86.regs[1];
+	regs->dx = krs.x86.regs[2];
+	regs->bx = krs.x86.regs[3];
+	regs->sp = krs.x86.regs[4];
+	regs->bp = krs.x86.regs[5];
+	regs->si = krs.x86.regs[6];
+	regs->di = krs.x86.regs[7];
+	regs->r8 = krs.x86.regs[8];
+	regs->r9 = krs.x86.regs[9];
+	regs->r10 = krs.x86.regs[10];
+	regs->r11 = krs.x86.regs[11];
+	regs->r12 = krs.x86.regs[12];
+	regs->r13 = krs.x86.regs[13];
+	regs->r14 = krs.x86.regs[14];
+	regs->r15 = krs.x86.regs[15];
 }
 
 static int get_active_regs(struct task_context *target,
@@ -1933,24 +1937,29 @@ static void
 get_regs_from_kvmdump_notes(struct task_context *target,
 			    struct user_regs_struct *regs)
 {
-	struct register_set *r = &kvm->registers[target->processor];
+	struct kvm_register_set krs;
 
-	regs->ax = r->regs[0];
-	regs->cx = r->regs[1];
-	regs->dx = r->regs[2];
-	regs->bx = r->regs[3];
-	regs->sp = r->regs[4];
-	regs->bp = r->regs[5];
-	regs->si = r->regs[6];
-	regs->di = r->regs[7];
-	regs->cs = r->cs;
-	regs->ss = r->ss;
-	regs->ds = r->ds;
-	regs->es = r->es;
-	regs->fs = r->fs;
-	regs->gs = r->gs;
-	regs->ip = r->ip;
-	regs->flags = r->flags;
+	BZERO(&krs, sizeof(krs));
+
+	if (!get_kvm_register_set(target->processor, &krs))
+		return;
+
+	regs->ax = krs.x86.regs[0];
+	regs->cx = krs.x86.regs[1];
+	regs->dx = krs.x86.regs[2];
+	regs->bx = krs.x86.regs[3];
+	regs->sp = krs.x86.regs[4];
+	regs->bp = krs.x86.regs[5];
+	regs->si = krs.x86.regs[6];
+	regs->di = krs.x86.regs[7];
+	regs->cs = krs.x86.cs;
+	regs->ss = krs.x86.ss;
+	regs->ds = krs.x86.ds;
+	regs->es = krs.x86.es;
+	regs->fs = krs.x86.fs;
+	regs->gs = krs.x86.gs;
+	regs->ip = krs.x86.ip;
+	regs->flags = krs.x86.flags;
 }
 
 static int genregs_get32(struct task_context *target,
