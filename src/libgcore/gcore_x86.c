@@ -15,9 +15,6 @@
 #if defined(X86) || defined(X86_64)
 
 #include "defs.h"
-#ifdef X86_64
-#include "unwind_x86_64.h"
-#endif
 #include <gcore_defs.h>
 #include <stdint.h>
 #include <elf.h>
@@ -514,11 +511,14 @@ convert_from_fxsr(struct user_i387_ia32_struct *env, struct task_context *target
 		if (is_task_active(target->task)) {
 			error(WARNING, "cannot restore runtime fos and fcs\n");
 		} else {
-			struct user_regs_struct regs;
+			char *pt_regs_buf;
 			uint16_t ds;
+			struct machine_specific *ms = machdep->machspec;
+
+			pt_regs_buf = GETBUF(SIZE(pt_regs));
 
 			readmem(machdep->get_stacktop(target->task) - SIZE(pt_regs),
-				KVADDR,	&regs, sizeof(regs),
+				KVADDR,	pt_regs_buf, SIZE(pt_regs),
 				"convert_from_fxsr: regs",
 				gcore_verbose_error_handle());
 
@@ -528,7 +528,7 @@ convert_from_fxsr(struct user_i387_ia32_struct *env, struct task_context *target
 				gcore_verbose_error_handle());
 			
 			env->fos = 0xffff0000 | ds;
-			env->fcs = regs.cs;
+			env->fcs = ULONG(pt_regs_buf + ms->pto.cs);
 		}
 	} else { /* X86 */
 		env->fip = xstate.fxsave.fip;
@@ -1192,6 +1192,50 @@ static ulong restore_frame_pointer(ulong task)
 	return rbp;
 }
 
+/*
+ * We should avoid using pt_regs directly since it depends on kernel
+ * versions, and should also handle here using offsets prepared by
+ * crash utility. But unwind() is currently implemented using pt_regs
+ * and it's still under investigation on how to replace them by offset
+ * handling. So, we're in the meanwhile forced to use unwind() without
+ * any change.
+ */
+
+struct gcore_x86_64_pt_regs {
+        unsigned long r15;
+        unsigned long r14;
+        unsigned long r13;
+        unsigned long r12;
+        unsigned long rbp;
+        unsigned long rbx;
+/* arguments: non interrupts/non tracing syscalls only save upto here*/
+        unsigned long r11;
+        unsigned long r10;
+        unsigned long r9;
+        unsigned long r8;
+        unsigned long rax;
+        unsigned long rcx;
+        unsigned long rdx;
+        unsigned long rsi;
+        unsigned long rdi;
+        unsigned long orig_rax;
+/* end of arguments */
+/* cpu exception frame or undefined */
+        unsigned long rip;
+        unsigned long cs;
+        unsigned long eflags;
+        unsigned long rsp;
+        unsigned long ss;
+/* top of stack page */
+};
+
+struct unwind_frame_info
+{
+	struct gcore_x86_64_pt_regs regs;
+};
+
+extern int unwind(struct unwind_frame_info *frame, int is_ehframe);
+
 /**
  * restore_rest() - restore user-mode callee-saved registers
  *
@@ -1215,11 +1259,11 @@ static ulong restore_frame_pointer(ulong task)
  * point is that two sections have differnet layout. Look carefully at
  * is_ehframe.
  */
-static inline void restore_rest(ulong task, struct pt_regs *regs,
+static inline void restore_rest(ulong task, struct user_regs_struct *regs,
 				const struct user_regs_struct *active_regs)
 {
-	int first_frame;
 	struct unwind_frame_info frame;
+	int first_frame;
 	const int is_ehframe = (!st->dwarf_debug_frame_size && st->dwarf_eh_frame_size);
 
 	/*
@@ -1231,11 +1275,11 @@ static inline void restore_rest(ulong task, struct pt_regs *regs,
 	 * backtracing currently.
 	 */
 	if (is_task_active(task)) {
-		memcpy(&frame.regs, active_regs, sizeof(struct pt_regs));
+		memcpy(&frame.regs, active_regs, sizeof(frame.regs));
 	} else {
 		unsigned long rsp, rbp;
 
-		memset(&frame.regs, 0, sizeof(struct pt_regs));
+		memset(&frame, 0, sizeof(frame));
 
 		readmem(task + OFFSET(task_struct_thread) +
 			OFFSET(thread_struct_rsp), KVADDR, &rsp, sizeof(rsp),
@@ -1268,8 +1312,8 @@ static inline void restore_rest(ulong task, struct pt_regs *regs,
 		regs->r13 = frame.regs.r13;
 		regs->r14 = frame.regs.r14;
 		regs->r15 = frame.regs.r15;
-		regs->rbp = frame.regs.rbp;
-		regs->rbx = frame.regs.rbx;
+		regs->bp = frame.regs.rbp;
+		regs->bx = frame.regs.rbx;
 	}
 
 	/*
@@ -1278,7 +1322,7 @@ static inline void restore_rest(ulong task, struct pt_regs *regs,
 	 * user-space address. See comments of restore_frame_pointer.
 	 */
 	else if ((machdep->flags & FRAMEPOINTER) && !is_task_active(task)) {
-		regs->rbp = restore_frame_pointer(task);
+		regs->bp = restore_frame_pointer(task);
 	}
 }
 
@@ -1385,7 +1429,7 @@ gcore_find_regs_from_bt_output(FILE *output, char *buf, size_t bufsize)
 }
 
 static int
-gcore_get_regs_from_bt_output(FILE *output, struct pt_regs *regs)
+gcore_get_regs_from_bt_output(FILE *output, struct user_regs_struct *regs)
 {
 	char buf[BUFSIZE];
 
@@ -1393,25 +1437,26 @@ gcore_get_regs_from_bt_output(FILE *output, struct pt_regs *regs)
 		return FALSE;
 
 	sscanf(buf, "    RIP: %016lx  RSP: %016lx  RFLAGS: %08lx\n",
-	       &regs->rip, &regs->rsp, &regs->eflags);
+	       &regs->ip, &regs->sp, &regs->flags);
 	fscanf(output, "    RAX: %016lx  RBX: %016lx  RCX: %016lx\n",
-	       &regs->rax, &regs->rbx, &regs->rcx);
+	       &regs->ax, &regs->bx, &regs->cx);
 	fscanf(output, "    RDX: %016lx  RSI: %016lx  RDI: %016lx\n",
-	       &regs->rdx, &regs->rsi, &regs->rdi);
+	       &regs->dx, &regs->si, &regs->di);
 	fscanf(output, "    RBP: %016lx   R8: %016lx   R9: %016lx\n",
-	       &regs->rbp, &regs->r8, &regs->r9);
+	       &regs->bp, &regs->r8, &regs->r9);
 	fscanf(output, "    R10: %016lx  R11: %016lx  R12: %016lx\n",
 	       &regs->r10, &regs->r11, &regs->r12);
 	fscanf(output, "    R13: %016lx  R14: %016lx  R15: %016lx\n",
 	       &regs->r13, &regs->r14, &regs->r15);
 	fscanf(output, "    ORIG_RAX: %016lx  CS: %04lx  SS: %04lx\n",
-	       &regs->orig_rax, &regs->cs, &regs->ss);
+	       &regs->orig_ax, &regs->cs, &regs->ss);
 
 	return TRUE;
 }
 
 static int
-gcore_get_regs_from_eframe(struct task_context *tc, struct pt_regs *regs)
+gcore_get_regs_from_eframe(struct task_context *tc,
+			   struct user_regs_struct *regs)
 {
 	int ret;
 	struct bt_info bt;
@@ -1484,7 +1529,7 @@ static int get_active_regs(struct task_context *target,
 		return TRUE;
 	}
 
-	if (gcore_get_regs_from_eframe(target, (struct pt_regs *)regs)) {
+	if (gcore_get_regs_from_eframe(target, regs)) {
 		/*
 		 * EFRAME contains CS and SS only. Here collects the
 		 * remaining part of segment registers.
@@ -1544,21 +1589,21 @@ static const unsigned char GCORE_OPCODE_INT80[] = {0xcd, 0x80};
  * @regs pt_regs structure at the bottom of @target's kernel stack
  */
 static enum gcore_kernel_entry
-check_kernel_entry(struct task_context *target, struct pt_regs *regs)
+check_kernel_entry(struct task_context *target, struct user_regs_struct *regs)
 {
 	/*
 	 * regs->orig_ax contains either a signal number or an IRQ
 	 * number: if >=0, it's a signal number; if <0, it's an IRQ
 	 * number.
 	 */
-	if ((int)regs->orig_rax >= 0) {
+	if ((int)regs->orig_ax >= 0) {
 		physaddr_t paddr;
 		unsigned char opcode[GCORE_SYSCALL_OPCODE_BYTES];
 
 		if (!gcore_is_arch_32bit_emulation(target))
 			return GCORE_KERNEL_ENTRY_SYSCALL;
 
-		if (!uvtop(target, regs->rip - sizeof(opcode), &paddr, FALSE))
+		if (!uvtop(target, regs->ip - sizeof(opcode), &paddr, FALSE))
 			return GCORE_KERNEL_ENTRY_IA32_UNKNOWN;
 			
 		readmem(paddr, PHYSADDR, opcode, sizeof(opcode),
@@ -1573,7 +1618,7 @@ check_kernel_entry(struct task_context *target, struct pt_regs *regs)
 		return GCORE_KERNEL_ENTRY_SYSENTER32;
 
 	} else {
-		const int vector = (int)~regs->orig_rax;
+		const int vector = (int)~regs->orig_ax;
 
 		if (vector < 0 || vector > 255)
 			return GCORE_KERNEL_ENTRY_INVALID_VECTOR;
@@ -1622,7 +1667,7 @@ restore_regs_syscall_context(struct task_context *target,
 	 * entire registers are saved for special system calls.
 	 */
 	if (!gxt->is_special_syscall(nr_syscall))
-		restore_rest(target->task, (struct pt_regs *)regs, active_regs);
+		restore_rest(target->task, regs, active_regs);
 
 	/*
 	 * See FIXUP_TOP_OF_STACK in arch/x86/kernel/entry_64.S.
@@ -1643,7 +1688,7 @@ restore_regs_ia32_syscall_common(struct task_context *target,
 	const int nr_syscall = (int)regs->orig_ax;
 
 	if (!gxt->is_special_ia32_syscall(nr_syscall))
-		restore_rest(target->task, (struct pt_regs *)regs, active_regs);
+		restore_rest(target->task, regs, active_regs);
 
 	restore_segment_registers(target->task, regs);
 }
@@ -1673,9 +1718,13 @@ static int genregs_get(struct task_context *target,
 		       const struct user_regset *regset,
 		       unsigned int size, void *buf)
 {
+	char *pt_regs_buf;
 	struct user_regs_struct *regs = (struct user_regs_struct *)buf;
 	struct user_regs_struct active_regs;
 	const int active = is_task_active(target->task);
+	struct machine_specific *ms = machdep->machspec;
+
+	BZERO(regs, sizeof(*regs));
 
 	if (active && get_active_regs(target, &active_regs)) {
 		if (user_mode(&active_regs)) {
@@ -1689,11 +1738,35 @@ static int genregs_get(struct task_context *target,
 	 * values at kernel stack top when entering kernel-mode at
 	 * interrupt.
 	 */
+	pt_regs_buf = GETBUF(SIZE(pt_regs));
+
 	readmem(machdep->get_stacktop(target->task) - SIZE(pt_regs), KVADDR,
-		regs, SIZE(pt_regs), "genregs_get: pt_regs",
+		pt_regs_buf, SIZE(pt_regs), "genregs_get: pt_regs",
 		gcore_verbose_error_handle());
 
-	switch (check_kernel_entry(target, (struct pt_regs *)regs)) {
+	regs->ip = ULONG(pt_regs_buf + ms->pto.rip);
+	regs->sp = ULONG(pt_regs_buf + ms->pto.rsp);
+	regs->cs = ULONG(pt_regs_buf + ms->pto.cs);
+	regs->ss = ULONG(pt_regs_buf + ms->pto.ss);
+	regs->flags = ULONG(pt_regs_buf + ms->pto.eflags);
+	regs->orig_ax = ULONG(pt_regs_buf + ms->pto.orig_rax);
+	regs->bp = ULONG(pt_regs_buf + ms->pto.rbp);
+	regs->ax = ULONG(pt_regs_buf + ms->pto.rax);
+	regs->bx = ULONG(pt_regs_buf + ms->pto.rbx);
+	regs->cx = ULONG(pt_regs_buf + ms->pto.rcx);
+	regs->dx = ULONG(pt_regs_buf + ms->pto.rdx);
+	regs->si = ULONG(pt_regs_buf + ms->pto.rsi);
+	regs->di = ULONG(pt_regs_buf + ms->pto.rdi);
+	regs->r8 = ULONG(pt_regs_buf + ms->pto.r8);
+	regs->r9 = ULONG(pt_regs_buf + ms->pto.r9);
+	regs->r10 = ULONG(pt_regs_buf + ms->pto.r10);
+	regs->r11 = ULONG(pt_regs_buf + ms->pto.r11);
+	regs->r12 = ULONG(pt_regs_buf + ms->pto.r12);
+	regs->r13 = ULONG(pt_regs_buf + ms->pto.r13);
+	regs->r14 = ULONG(pt_regs_buf + ms->pto.r14);
+	regs->r15 = ULONG(pt_regs_buf + ms->pto.r15);
+
+	switch (check_kernel_entry(target, regs)) {
 	case GCORE_KERNEL_ENTRY_UNKNOWN:
 		error(WARNING, "unknown kernel entry.\n");
 		break;
@@ -1715,7 +1788,7 @@ static int genregs_get(struct task_context *target,
 		      "system call instruction used could not be found\n");
 	case GCORE_KERNEL_ENTRY_IRQ:
 	case GCORE_KERNEL_ENTRY_INT80:
-		restore_rest(target->task, (struct pt_regs *)regs, &active_regs);
+		restore_rest(target->task, regs, &active_regs);
 		restore_segment_registers(target->task, regs);
 		break;
 	case GCORE_KERNEL_ENTRY_SYSCALL:
@@ -1893,7 +1966,9 @@ static void gcore_x86_64_regset_xstate_init(void)
 
 void gcore_x86_64_regsets_init(void)
 {
-       	gcore_x86_64_regset_xstate_init();
+	gcore_x86_64_regset_xstate_init();
+
+	x86_64_exception_frame(EFRAME_INIT, 0, NULL, NULL, NULL);
 }
 
 static int genregs_get32(struct task_context *target,
