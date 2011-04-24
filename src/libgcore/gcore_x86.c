@@ -505,37 +505,39 @@ convert_from_fxsr(struct user_i387_ia32_struct *env, struct task_context *target
 	env->swd = xstate.fxsave.swd | 0xffff0000u;
 	env->twd = twd_fxsr_to_i387(&xstate.fxsave);
 
-	if (STREQ(pc->machine_type, "X86_64")) {
-		env->fip = xstate.fxsave.rip;
-		env->foo = xstate.fxsave.rdp;
-		if (is_task_active(target->task)) {
-			error(WARNING, "cannot restore runtime fos and fcs\n");
-		} else {
-			char *pt_regs_buf;
-			uint16_t ds;
-			struct machine_specific *ms = machdep->machspec;
+#ifdef X86_64
+	env->fip = xstate.fxsave.rip;
+	env->foo = xstate.fxsave.rdp;
+	if (is_task_active(target->task)) {
+		error(WARNING, "cannot restore runtime fos and fcs\n");
+	} else {
+		char *pt_regs_buf;
+		uint16_t ds;
+		struct machine_specific *ms = machdep->machspec;
 
-			pt_regs_buf = GETBUF(SIZE(pt_regs));
+		pt_regs_buf = GETBUF(SIZE(pt_regs));
 
-			readmem(machdep->get_stacktop(target->task) - SIZE(pt_regs),
-				KVADDR,	pt_regs_buf, SIZE(pt_regs),
-				"convert_from_fxsr: regs",
-				gcore_verbose_error_handle());
+		readmem(machdep->get_stacktop(target->task) - SIZE(pt_regs),
+			KVADDR,	pt_regs_buf, SIZE(pt_regs),
+			"convert_from_fxsr: regs",
+			gcore_verbose_error_handle());
 
-			readmem(target->task + OFFSET(task_struct_thread)
-				+ GCORE_OFFSET(thread_struct_ds), KVADDR, &ds,
-				sizeof(ds), "convert_from_fxsr: ds",
-				gcore_verbose_error_handle());
+		readmem(target->task + OFFSET(task_struct_thread)
+			+ GCORE_OFFSET(thread_struct_ds), KVADDR, &ds,
+			sizeof(ds), "convert_from_fxsr: ds",
+			gcore_verbose_error_handle());
 			
-			env->fos = 0xffff0000 | ds;
-			env->fcs = ULONG(pt_regs_buf + ms->pto.cs);
-		}
-	} else { /* X86 */
-		env->fip = xstate.fxsave.fip;
-		env->fcs = (uint16_t) xstate.fxsave.fcs | ((uint32_t) xstate.fxsave.fop << 16);
-		env->foo = xstate.fxsave.foo;
-		env->fos = xstate.fxsave.fos;
+		env->fos = 0xffff0000 | ds;
+		env->fcs = ULONG(pt_regs_buf + ms->pto.cs);
 	}
+#endif
+
+#ifdef X86
+	env->fip = xstate.fxsave.fip;
+	env->fcs = (uint16_t) xstate.fxsave.fcs | ((uint32_t) xstate.fxsave.fop << 16);
+	env->foo = xstate.fxsave.foo;
+	env->fos = xstate.fxsave.fos;
+#endif
 
 	for (i = 0; i < 8; ++i)
 		memcpy(&to[i], &from[i], sizeof(to[0]));
