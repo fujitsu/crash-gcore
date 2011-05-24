@@ -949,19 +949,17 @@ static inline void gcore_arch_table_init(void)
 #endif
 }
 
-static inline void gcore_arch_regsets_init(void)
-{
 #if X86_64
-	extern void gcore_x86_64_regsets_init(void);
-	gcore_x86_64_regsets_init();
+extern void gcore_x86_64_regsets_init(void);
+extern void gcore_x86_32_regsets_init(void);
+#define gcore_arch_regsets_init gcore_x86_64_regsets_init
 #elif X86
-	extern void gcore_x86_32_regsets_init(void);
-	gcore_x86_32_regsets_init();
+extern void gcore_x86_32_regsets_init(void);
+#define gcore_arch_regsets_init gcore_x86_32_regsets_init
 #else
-	extern void gcore_default_regsets_init(void);
-	gcore_default_regsets_init();
+extern void gcore_default_regsets_init(void);
+#define gcore_arch_regsets_init gcore_default_regsets_init
 #endif
-}
 
 #ifdef GCORE_TEST
 
