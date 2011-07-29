@@ -421,6 +421,7 @@ extern struct gcore_one_session_data *gcore;
 extern struct gcore_coredump_table *ggt;
 extern struct gcore_offset_table gcore_offset_table;
 extern struct gcore_size_table gcore_size_table;
+extern struct gcore_machdep_table *gcore_machdep;
 
 /*
  * Misc
@@ -852,6 +853,10 @@ struct gcore_size_table
 
 extern struct gcore_offset_table gcore_offset_table;
 extern struct gcore_size_table gcore_size_table;
+
+struct gcore_machdep_table
+{
+};
 
 /*
  * gcore flags

@@ -24,3 +24,6 @@ struct gcore_coredump_table *ggt = &gcore_coredump_table;
 
 struct gcore_offset_table gcore_offset_table = {0, };
 struct gcore_size_table gcore_size_table = {0, };
+
+struct gcore_machdep_table gcore_machdep_table;
+struct gcore_machdep_table *gcore_machdep = &gcore_machdep_table;
