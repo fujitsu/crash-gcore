@@ -20,6 +20,7 @@
 
 static void gcore_offset_table_init(void);
 static void gcore_size_table_init(void);
+static void gcore_machdep_init(void);
 
 static void do_gcore(char *arg);
 static void print_version(void);
@@ -40,6 +41,7 @@ _init(void) /* Register the command set. */
 	gcore_coredump_table_init();
 	gcore_arch_table_init();
 	gcore_arch_regsets_init();
+	gcore_machdep_init();
         register_extension(command_table);
 	return 1;
 }
@@ -482,6 +484,10 @@ static void gcore_size_table_init(void)
 	GCORE_STRUCT_SIZE_INIT(thread_xstate, "thread_xstate");
 	GCORE_MEMBER_SIZE_INIT(vm_area_struct_anon_vma, "vm_area_struct", "anon_vma");
 
+}
+
+static void gcore_machdep_init(void)
+{
 }
 
 #ifdef GCORE_TEST
