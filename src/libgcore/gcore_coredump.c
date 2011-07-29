@@ -46,9 +46,9 @@ static void fill_note(struct memelfnote *note, const char *name, int type,
 		      unsigned int sz, void *data);
 
 static int notesize(struct memelfnote *en);
-static void alignfile(int fd, off_t *foffset);
-static void writenote(struct memelfnote *men, int fd, off_t *foffset);
-static void write_note_info(int fd, struct elf_note_info *info, off_t *foffset);
+static void alignfile(int fd, loff_t *foffset);
+static void writenote(struct memelfnote *men, int fd, loff_t *foffset);
+static void write_note_info(int fd, struct elf_note_info *info, loff_t *foffset);
 static size_t get_note_info_size(struct elf_note_info *info);
 static ulong first_vma(ulong mmap, ulong gate_vma);
 static ulong next_vma(ulong this_vma, ulong gate_vma);
@@ -61,7 +61,7 @@ void gcore_coredump(void)
 	struct elf_note_info *info;
 	int map_count, phnum;
 	ulong vma, index, mmap;
-	off_t offset, foffset, dataoff;
+	loff_t offset, foffset, dataoff;
 	char *mm_cache, *buffer = NULL;
 	ulong gate_vma;
 
@@ -583,7 +583,7 @@ fill_note(struct memelfnote *note, const char *name, int type, unsigned int sz,
 }
 
 static void
-alignfile(int fd, off_t *foffset)
+alignfile(int fd, loff_t *foffset)
 {
         static const char buffer[4] = {};
 	const size_t len = roundup(*foffset, 4) - *foffset;
@@ -591,11 +591,11 @@ alignfile(int fd, off_t *foffset)
 	if ((size_t)write(fd, buffer, len) != len)
 		error(FATAL, "%s: write %s\n", gcore->corename,
 		      strerror(errno));
-	*foffset += (off_t)len;
+	*foffset += (loff_t)len;
 }
 
 static void
-writenote(struct memelfnote *men, int fd, off_t *foffset)
+writenote(struct memelfnote *men, int fd, loff_t *foffset)
 {
 	uint32_t n_namesz, n_descsz, n_type;
 
@@ -627,7 +627,7 @@ writenote(struct memelfnote *men, int fd, off_t *foffset)
 }
 
 static void
-write_note_info(int fd, struct elf_note_info *info, off_t *foffset)
+write_note_info(int fd, struct elf_note_info *info, loff_t *foffset)
 {
         int first = 1;
         struct elf_thread_core_info *t = info->thread;
