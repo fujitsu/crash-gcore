@@ -727,7 +727,8 @@ struct elf_note_info {
 #define VM_IO           0x00004000      /* Memory mapped I/O or similar */
 #define VM_RESERVED     0x00080000      /* Count as reserved_vm like IO */
 #define VM_HUGETLB      0x00400000      /* Huge TLB Page VM */
-#define VM_ALWAYSDUMP   0x04000000      /* Always include in core dumps */
+#define VM_ALWAYSDUMP   (gcore_machdep->vm_alwaysdump)
+                                        /* Always include in core dumps */
 
 #define FOR_EACH_VMA_OBJECT(vma, index, mmap, gate_vma)			\
 	for (index = 0, vma = first_vma(mmap, gate_vma); vma;		\
@@ -856,6 +857,7 @@ extern struct gcore_size_table gcore_size_table;
 
 struct gcore_machdep_table
 {
+	ulong vm_alwaysdump;
 };
 
 /*
