@@ -488,6 +488,10 @@ static void gcore_size_table_init(void)
 
 static void gcore_machdep_init(void)
 {
+	if (STRUCT_EXISTS("fault_data") || STRUCT_EXISTS("vm_fault"))
+		gcore_machdep->vm_alwaysdump = 0x04000000;
+	else
+		gcore_machdep->vm_alwaysdump = 0x08000000;
 }
 
 #ifdef GCORE_TEST
