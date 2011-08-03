@@ -11,9 +11,12 @@ test: check_crash
 	@cp -r ./test/* ${CRASH}/extensions/
 	make default
 
-tarball:
+gcore_version: ./src/gcore.mk
+GCORE_VERSION := $(shell egrep "VERSION=[0-9]\.[0-9]\.[0-9]" ./src/gcore.mk | head -n 1 | cut -d = -f 2)
+
+tarball: gcore_version
 	@(cd ./src; \
-	git archive --format=tar HEAD ./ | bzip2 > ../gcore.tar.bz2; \
+	git archive --format=tar HEAD ./ | bzip2 > ../gcore-${GCORE_VERSION}.tar.bz2; \
 	cd ..)
 
 check_crash:
