@@ -1434,23 +1434,24 @@ static int
 gcore_get_regs_from_bt_output(FILE *output, struct user_regs_struct *regs)
 {
 	char buf[BUFSIZE];
+	int items __attribute__ ((__unused__));
 
 	if (gcore_find_regs_from_bt_output(output, buf, BUFSIZE) == FALSE)
 		return FALSE;
 
-	sscanf(buf, "    RIP: %016lx  RSP: %016lx  RFLAGS: %08lx\n",
+	items = sscanf(buf, "    RIP: %016lx  RSP: %016lx  RFLAGS: %08lx\n",
 	       &regs->ip, &regs->sp, &regs->flags);
-	fscanf(output, "    RAX: %016lx  RBX: %016lx  RCX: %016lx\n",
+	items = fscanf(output, "    RAX: %016lx  RBX: %016lx  RCX: %016lx\n",
 	       &regs->ax, &regs->bx, &regs->cx);
-	fscanf(output, "    RDX: %016lx  RSI: %016lx  RDI: %016lx\n",
+	items = fscanf(output, "    RDX: %016lx  RSI: %016lx  RDI: %016lx\n",
 	       &regs->dx, &regs->si, &regs->di);
-	fscanf(output, "    RBP: %016lx   R8: %016lx   R9: %016lx\n",
+	items = fscanf(output, "    RBP: %016lx   R8: %016lx   R9: %016lx\n",
 	       &regs->bp, &regs->r8, &regs->r9);
-	fscanf(output, "    R10: %016lx  R11: %016lx  R12: %016lx\n",
+	items = fscanf(output, "    R10: %016lx  R11: %016lx  R12: %016lx\n",
 	       &regs->r10, &regs->r11, &regs->r12);
-	fscanf(output, "    R13: %016lx  R14: %016lx  R15: %016lx\n",
+	items = fscanf(output, "    R13: %016lx  R14: %016lx  R15: %016lx\n",
 	       &regs->r13, &regs->r14, &regs->r15);
-	fscanf(output, "    ORIG_RAX: %016lx  CS: %04lx  SS: %04lx\n",
+	items = fscanf(output, "    ORIG_RAX: %016lx  CS: %04lx  SS: %04lx\n",
 	       &regs->orig_ax, &regs->cs, &regs->ss);
 
 	return TRUE;
