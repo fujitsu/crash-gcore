@@ -26,7 +26,7 @@ ifndef CRASH
 endif
 
 clean:
-	@(rm -f gcore.tar.bz2)
+	@(rm -f crash-gcore-command-*.tar.gz)
 ifdef CRASH
 	@(cd ${CRASH}; make do_clean)
 endif
