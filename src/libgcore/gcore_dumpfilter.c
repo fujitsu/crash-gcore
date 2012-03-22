@@ -150,25 +150,3 @@ whole:
 pagesize:
 	return PAGE_SIZE;
 }
-
-#ifdef GCORE_TEST
-
-char *gcore_dumpfilter_test(void)
-{
-	dumpfilter = 0UL;
-	mu_assert("given filter level is too large",
-		  !gcore_dumpfilter_set(GCORE_DUMPFILTER_MAX_LEVEL + 1));
-	mu_assert("dumpfilter was updated given an invalid argument",
-		  dumpfilter == 0UL);
-
-	dumpfilter = 0UL;
-	mu_assert("didn't return TRUE even if a valid argument was given",
-		  gcore_dumpfilter_set(GCORE_DUMPFILTER_MAX_LEVEL));
-	mu_assert("not set given valid argument",
-		  dumpfilter == GCORE_DUMPFILTER_MAX_LEVEL);
-	dumpfilter = GCORE_DUMPFILTER_DEFAULT;
-
-	return NULL;
-}
-
-#endif

@@ -968,44 +968,4 @@ extern void gcore_default_regsets_init(void);
 #define gcore_arch_regsets_init gcore_default_regsets_init
 #endif
 
-#ifdef GCORE_TEST
-
-static inline int gcore_proc_version_contains(const char *s)
-{
-	return strstr(kt->proc_version, s) ? TRUE : FALSE;
-}
-
-static inline int gcore_is_rhel4(void)
-{
-	return THIS_KERNEL_VERSION == LINUX(2,6,9)
-		&& gcore_proc_version_contains(".EL");
-}
-
-static inline int gcore_is_rhel5(void)
-{
-	return THIS_KERNEL_VERSION == LINUX(2,6,18)
-		&& gcore_proc_version_contains(".el5");
-}
-
-static inline int gcore_is_rhel6(void)
-{
-	return THIS_KERNEL_VERSION == LINUX(2,6,32)
-		&& gcore_proc_version_contains(".el6");
-}
-
-extern char *help_gcore_test[];
-extern void cmd_gcore_test(void);
-
-#define mu_assert(message, test) do { if (!(test)) return message; } while (0)
-#define mu_run_test(test) do { char *message = test(); tests_run++; \
-		　　　　if (message) return message; } while (0)
-extern int tests_run;
-
-extern char *gcore_x86_test(void);
-extern char *gcore_coredump_table_test(void);
-extern char *gcore_dumpfilter_test(void);
-extern char *gcore_verbose_test(void);
-
-#endif
-
 #endif /* GCORE_DEFS_H_ */

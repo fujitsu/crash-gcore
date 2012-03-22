@@ -27,9 +27,6 @@ static void print_version(void);
 
 static struct command_table_entry command_table[] = {
 	{ "gcore", cmd_gcore, help_gcore, 0 },
-#ifdef GCORE_TEST
-	{ "gcore_test", cmd_gcore_test, help_gcore_test, 0 },
-#endif
 	{ (char *)NULL }                               
 };
 
@@ -493,38 +490,3 @@ static void gcore_machdep_init(void)
 	else
 		gcore_machdep->vm_alwaysdump = 0x08000000;
 }
-
-#ifdef GCORE_TEST
-
-char *help_gcore_test[] = {
-"gcore_test",
-"gcore_test - test gcore",
-"\n"
-"  ",
-NULL,
-};
-
-void cmd_gcore_test(void)
-{
-	int failed = FALSE;
-	char *message = NULL;
-
-#define TEST_MODULE(test)					\
-	message = test();					\
-	if (message) {						\
-		failed = TRUE;					\
-		fprintf(fp, #test ": %s\n", message);		\
-	}
-
-	TEST_MODULE(gcore_x86_test);
-	TEST_MODULE(gcore_coredump_table_test);
-	TEST_MODULE(gcore_dumpfilter_test);
-	TEST_MODULE(gcore_verbose_test);
-
-	if (!failed)
-		fprintf(fp, "All test cases are successfully passed\n");
-
-#undef TEST_MODULE
-}
-
-#endif /* GCORE_TEST */
