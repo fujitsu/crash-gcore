@@ -362,7 +362,7 @@ static int xfpregs_get(struct task_context *target,
 
 	*fxsave = xstate.fxsave;
 
-	return TRUE;
+	return 0;
 }
 
 static void xfpregs_callback(struct elf_thread_core_info *t,
@@ -430,7 +430,7 @@ static int fpregs_soft_get(struct task_context *target,
 			   void *buf)
 {
 	error(WARNING, "not support FPU software emulation\n");
-	return TRUE;
+	return 0;
 }
 
 static inline struct _fpxreg *
@@ -560,14 +560,14 @@ static int fpregs_get(struct task_context *target,
 			gxt->get_thread_struct_fpu_size(),
 			"fpregs_get: xstate", gcore_verbose_error_handle());
 		memcpy(buf, &xstate.fsave, sizeof(xstate.fsave));
-		return TRUE;
+		return 0;
 	}
 
 	sanitize_i387_state(target);
 
 	convert_from_fxsr(buf, target);
 
-        return TRUE;
+        return 0;
 }
 
 static ulong gcore_x86_get_thread_struct_fpu_thread_xstate(struct task_context *tc)
@@ -680,7 +680,7 @@ xstateregs_get(struct task_context *target,
 		USER_XSTATE_FX_SW_WORDS * sizeof(uint64_t),
 		"fill_xstate: sw_reserved", gcore_verbose_error_handle());
 
-	return TRUE;
+	return 0;
 }
 
 #ifdef X86_64
@@ -812,7 +812,7 @@ static int regset_tls_get(struct task_context *target,
 		fill_user_desc(&info[i], GDT_ENTRY_TLS_MIN + i, &tls_array[i]);
 	}
 
-	return TRUE;
+	return 0;
 }
 
 #define IO_BITMAP_BITS  65536
@@ -823,6 +823,7 @@ static int
 ioperm_active(struct task_context *target,
 	      const struct user_regset *regset)
 {
+	ulong io_bitmap_ptr;
 	unsigned int io_bitmap_max;
 
 	readmem(target->task + OFFSET(task_struct_thread) +
@@ -830,7 +831,12 @@ ioperm_active(struct task_context *target,
 		&io_bitmap_max, sizeof(io_bitmap_max),
 		"ioperm_active: io_bitmap_max", gcore_verbose_error_handle());
 
-	return !!io_bitmap_max;
+	readmem(target->task + OFFSET(task_struct_thread) +
+		GCORE_OFFSET(thread_struct_io_bitmap_ptr), KVADDR,
+		&io_bitmap_ptr, sizeof(io_bitmap_ptr),
+		"ioperm_get: io_bitmap_ptr", gcore_verbose_error_handle());
+
+	return io_bitmap_max && io_bitmap_ptr;
 }
 
 static int ioperm_get(struct task_context *target,
@@ -844,9 +850,6 @@ static int ioperm_get(struct task_context *target,
 		GCORE_OFFSET(thread_struct_io_bitmap_ptr), KVADDR,
 		&io_bitmap_ptr, sizeof(io_bitmap_ptr),
 		"ioperm_get: io_bitmap_ptr", gcore_verbose_error_handle());
-
-	if (!io_bitmap_ptr)
-		return FALSE;
 
 	readmem(io_bitmap_ptr, KVADDR, buf, size, "ioperm_get: copy IO bitmap",
 		gcore_verbose_error_handle());
