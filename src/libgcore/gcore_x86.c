@@ -649,6 +649,7 @@ xstateregs_active(struct task_context *target,
 		  const struct user_regset *regset)
 {
 	return cpu_has_xsave() && fpregs_active(target, regset)
+		&& symbol_exists("xstate_fx_sw_bytes")
 		&& !!get_xstate_regsets_number();
 }
 
@@ -667,9 +668,6 @@ xstateregs_get(struct task_context *target,
 		gcore_verbose_error_handle());
 
         init_fpu(target->task);
-
-	if (!symbol_exists("xstate_fx_sw_bytes"))
-		error(FATAL, "xstate_fx_sw_bytes: symbol does not exist\n");
 
 	xstate_fx_sw_bytes = symbol_value("xstate_fx_sw_bytes");
 
