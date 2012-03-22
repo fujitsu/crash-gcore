@@ -186,7 +186,7 @@ cmd_gcore(void)
 	int optversion;
 
 	if (ACTIVE())
-		error(FATAL, "no support on live kernel");
+		error(FATAL, "no support on live kernel\n");
 
 	gcore_dumpfilter_set_default();
 	gcore_verbose_set_default();
