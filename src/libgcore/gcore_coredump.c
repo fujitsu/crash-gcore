@@ -454,8 +454,8 @@ fill_thread_core_info(struct elf_thread_core_info *t,
 		    !regset->active(task_to_context(t->task), regset))
 			continue;
 		data = (void *)GETBUF(regset->size);
-		if (!regset->get(task_to_context(t->task), regset, regset->size,
-				 data))
+		if (regset->get(task_to_context(t->task), regset, regset->size,
+				data))
 			continue;
 		if (regset->callback)
 			regset->callback(t, regset);

@@ -29,7 +29,7 @@ static int genregs_get(struct task_context *target,
 	readmem(machdep->get_stacktop(target->task) - SIZE(pt_regs), KVADDR,
 		buf, size, "genregs_get: pt_regs", gcore_verbose_error_handle());
 
-	return TRUE;
+	return 0;
 }
 
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof((a)[0]))
