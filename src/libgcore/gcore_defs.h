@@ -47,7 +47,9 @@
 #define Elf_Phdr Elf64_Phdr
 #define Elf_Shdr Elf64_Shdr
 #define Elf_Nhdr Elf64_Nhdr
-#elif X86
+#endif
+
+#ifdef X86
 #define ELF_EXEC_PAGESIZE 4096
 
 #define ELF_MACHINE EM_386
@@ -56,6 +58,26 @@
 #define ELF_CLASS ELFCLASS32
 #define ELF_DATA ELFDATA2LSB
 #define ELF_ARCH EM_386
+
+#define Elf_Half Elf32_Half
+#define Elf_Word Elf32_Word
+#define Elf_Off Elf32_Off
+
+#define Elf_Ehdr Elf32_Ehdr
+#define Elf_Phdr Elf32_Phdr
+#define Elf_Shdr Elf32_Shdr
+#define Elf_Nhdr Elf32_Nhdr
+#endif
+
+#ifdef ARM
+#define ELF_EXEC_PAGESIZE 4096
+
+#define ELF_MACHINE EM_ARM
+#define ELF_OSABI ELFOSABI_NONE
+
+#define ELF_CLASS ELFCLASS32
+#define ELF_DATA ELFDATA2LSB
+#define ELF_ARCH EM_ARM
 
 #define Elf_Half Elf32_Half
 #define Elf_Word Elf32_Word
@@ -200,15 +222,24 @@ struct user_regset_view {
 extern const struct user_regset_view *task_user_regset_view(void);
 extern void gcore_default_regsets_init(void);
 
-#if X86
+#ifdef X86
 #define REGSET_VIEW_NAME "i386"
 #define REGSET_VIEW_MACHINE EM_386
-#elif X86_64
+#endif
+
+#ifdef X86_64
 #define REGSET_VIEW_NAME "x86_64"
 #define REGSET_VIEW_MACHINE EM_X86_64
-#elif IA64
+#endif
+
+#ifdef IA64
 #define REGSET_VIEW_NAME "ia64"
 #define REGSET_VIEW_MACHINE EM_IA_64
+#endif
+
+#ifdef ARM
+#define REGSET_VIEW_NAME "arm"
+#define REGSET_VIEW_MACHINE EM_ARM
 #endif
 
 /*
@@ -393,11 +424,57 @@ struct user_regs_struct {
 };
 #endif
 
+#ifdef ARM
+struct user_fp {
+	struct fp_reg {
+		unsigned int sign1:1;
+		unsigned int unused:15;
+		unsigned int sign2:1;
+		unsigned int exponent:14;
+		unsigned int j:1;
+		unsigned int mantissa1:31;
+		unsigned int mantissa0:32;
+	} fpregs[8];
+	unsigned int fpsr:32;
+	unsigned int fpcr:32;
+	unsigned char ftype[8];
+	unsigned int init_flag;
+};
+
+struct user_vfp {
+	unsigned long long fpregs[32];
+	unsigned long fpscr;
+};
+
+struct user_regs_struct{
+	unsigned long r0;
+	unsigned long r1;
+	unsigned long r2;
+	unsigned long r3;
+	unsigned long r4;
+	unsigned long r5;
+	unsigned long r6;
+	unsigned long r7;
+	unsigned long r8;
+	unsigned long r9;
+	unsigned long r10;
+	unsigned long fp;
+	unsigned long ip;
+	unsigned long sp;
+	unsigned long lr;
+	unsigned long pc;
+	unsigned long cpsr;
+	unsigned long ORIG_r0;
+};
+
+#define ARM_VFPREGS_SIZE ( 32 * 8 /*fpregs*/ + 4 /*fpscr*/ )
+#endif
+
 typedef ulong elf_greg_t;
 #define ELF_NGREG (sizeof(struct user_regs_struct) / sizeof(elf_greg_t))
 typedef elf_greg_t elf_gregset_t[ELF_NGREG];
 
-#ifdef X86
+#if defined(X86) || defined(ARM)
 #define PAGE_SIZE 4096
 #endif
 
@@ -558,7 +635,9 @@ typedef __kernel_old_gid_t      old_gid_t;
 #ifdef X86_64
 typedef unsigned int __kernel_uid_t;
 typedef unsigned int __kernel_gid_t;
-#elif X86
+#endif
+
+#if defined(X86) || defined(ARM)
 typedef unsigned short __kernel_uid_t;
 typedef unsigned short __kernel_gid_t;
 #endif
@@ -809,6 +888,8 @@ struct gcore_offset_table
 	long task_struct_uid;
 	long task_struct_used_math;
 	long thread_info_status;
+	long thread_info_fpstate;
+	long thread_info_vfpstate;
 	long thread_struct_ds;
 	long thread_struct_es;
 	long thread_struct_fs;
@@ -823,6 +904,9 @@ struct gcore_offset_table
 	long thread_struct_io_bitmap_max;
 	long thread_struct_io_bitmap_ptr;
 	long user_regset_n;
+	long vfp_state_hard;
+	long vfp_hard_struct_fpregs;
+	long vfp_hard_struct_fpscr;
 	long vm_area_struct_anon_vma;
 	long x8664_pda_oldrsp;
 };
@@ -837,6 +921,8 @@ struct gcore_size_table
 	long thread_struct_gs;
 	long thread_struct_gsindex;
 	long thread_struct_tls_array;
+	long vfp_hard_struct_fpregs;
+	long vfp_hard_struct_fpscr;
 	long vm_area_struct_anon_vma;
 	long thread_xstate;
 	long i387_union;
@@ -956,14 +1042,18 @@ static inline void gcore_arch_table_init(void)
 #endif
 }
 
-#if X86_64
+#ifdef X86_64
 extern void gcore_x86_64_regsets_init(void);
 extern void gcore_x86_32_regsets_init(void);
 #define gcore_arch_regsets_init gcore_x86_64_regsets_init
-#elif X86
+#endif
+
+#ifdef X86
 extern void gcore_x86_32_regsets_init(void);
 #define gcore_arch_regsets_init gcore_x86_32_regsets_init
-#else
+#endif
+
+#ifndef gcore_arch_regsets_init
 extern void gcore_default_regsets_init(void);
 #define gcore_arch_regsets_init gcore_default_regsets_init
 #endif
