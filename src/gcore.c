@@ -334,10 +334,9 @@ static void do_gcore(char *arg)
 
 static void print_version(void)
 {
-	fprintf(fp, "gcore extension module: version " VERSION " (released on "
+	fprintf(fp, "crash gcore command: version " VERSION " (released on "
 		RELEASE_DATE ")\n");
 	fprintf(fp, "Copyright (C) " PERIOD "  Fujitsu Limited\n");
-	fprintf(fp, "\n");
 }
 
 static void gcore_offset_table_init(void)
