@@ -441,6 +441,8 @@ static void gcore_offset_table_init(void)
 	GCORE_MEMBER_OFFSET_INIT(task_struct_uid, "task_struct", "uid");
 	GCORE_MEMBER_OFFSET_INIT(task_struct_used_math, "task_struct", "used_math");
 	GCORE_MEMBER_OFFSET_INIT(thread_info_status, "thread_info", "status");
+	GCORE_MEMBER_OFFSET_INIT(thread_info_fpstate, "thread_info", "fpstate");
+	GCORE_MEMBER_OFFSET_INIT(thread_info_vfpstate, "thread_info", "vfpstate");
 	GCORE_MEMBER_OFFSET_INIT(thread_struct_ds, "thread_struct", "ds");
 	GCORE_MEMBER_OFFSET_INIT(thread_struct_es, "thread_struct", "es");
 	GCORE_MEMBER_OFFSET_INIT(thread_struct_fs, "thread_struct", "fs");
@@ -465,6 +467,9 @@ static void gcore_offset_table_init(void)
 
 	if (symbol_exists("_cpu_pda"))
 		GCORE_MEMBER_OFFSET_INIT(x8664_pda_oldrsp, "x8664_pda", "oldrsp");
+	GCORE_MEMBER_OFFSET_INIT(vfp_state_hard, "vfp_state", "hard");
+	GCORE_MEMBER_OFFSET_INIT(vfp_hard_struct_fpregs, "vfp_hard_struct", "fpregs");
+	GCORE_MEMBER_OFFSET_INIT(vfp_hard_struct_fpscr, "vfp_hard_struct", "fpscr");
 }
 
 static void gcore_size_table_init(void)
@@ -480,6 +485,8 @@ static void gcore_size_table_init(void)
 	GCORE_MEMBER_SIZE_INIT(thread_struct_tls_array, "thread_struct", "tls_array");
 	GCORE_STRUCT_SIZE_INIT(thread_xstate, "thread_xstate");
 	GCORE_MEMBER_SIZE_INIT(vm_area_struct_anon_vma, "vm_area_struct", "anon_vma");
+	GCORE_MEMBER_SIZE_INIT(vfp_hard_struct_fpregs, "vfp_hard_struct", "fpregs");
+	GCORE_MEMBER_SIZE_INIT(vfp_hard_struct_fpscr, "vfp_hard_struct", "fpscr");
 
 }
 

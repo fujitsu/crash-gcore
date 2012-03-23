@@ -30,6 +30,12 @@ ifeq ($(shell arch), x86_64)
   ARCH=SUPPORTED
 endif
 
+ifeq ($(shell arch), arm)
+  TARGET=ARM
+  TARGET_CFLAGS=
+  ARCH=SUPPORTED
+endif
+
 ifeq ($(shell /bin/ls /usr/include/crash/defs.h 2>/dev/null), /usr/include/crash/defs.h)
   INCDIR=/usr/include/crash
 endif
@@ -51,6 +57,10 @@ GCORE_CFILES = \
 
 ifneq (,$(findstring $(TARGET), X86 X86_64))
 GCORE_CFILES += libgcore/gcore_x86.c
+endif
+
+ifneq (,$(findstring $(TARGET), ARM))
+GCORE_CFILES += libgcore/gcore_arm.c
 endif
 
 GCORE_OFILES = $(patsubst %.c,%.o,$(GCORE_CFILES))
