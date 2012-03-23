@@ -15,9 +15,10 @@ gcore_version: ./src/gcore.mk
 GCORE_VERSION := $(shell egrep "VERSION=[0-9]\.[0-9]" ./src/gcore.mk | head -n 1 | cut -d = -f 2)
 
 tarball: gcore_version
-	@(cd ./src; \
-	git archive --format=tar HEAD ./ | gzip > ../crash-gcore-command-${GCORE_VERSION}.tar.gz; \
-	cd ..)
+	@(cp -r ./src ./crash-gcore-command-${GCORE_VERSION}; \
+	cp ./COPYING ./crash-gcore-command-${GCORE_VERSION}; \
+	tar zcf crash-gcore-command-${GCORE_VERSION}.tar.gz ./crash-gcore-command-${GCORE_VERSION}; \
+	rm -rf ./crash-gcore-command-${GCORE_VERSION})
 
 check_crash:
 ifndef CRASH
