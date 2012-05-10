@@ -105,6 +105,7 @@ static struct user_regset arm_regsets[] = {
 	},
 	[REGSET_VFP] = {
 		.core_note_type = NT_ARM_VFP,
+		.name = "CORE",
 		.size = ARM_VFPREGS_SIZE,
 		.active = vfp_vector_active,
 		.get = vfp_get,
