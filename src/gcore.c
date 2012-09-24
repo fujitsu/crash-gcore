@@ -349,6 +349,8 @@ static void gcore_offset_table_init(void)
 	GCORE_MEMBER_OFFSET_INIT(desc_struct_base2, "desc_struct", "base2");
 	GCORE_MEMBER_OFFSET_INIT(fpu_state, "fpu", "state");
 	GCORE_MEMBER_OFFSET_INIT(inode_i_nlink, "inode", "i_nlink");
+	if (GCORE_INVALID_MEMBER(inode_i_nlink))
+		GCORE_ANON_MEMBER_OFFSET_INIT(inode_i_nlink, "inode", "i_nlink");
 	GCORE_MEMBER_OFFSET_INIT(nsproxy_pid_ns, "nsproxy", "pid_ns");
 	GCORE_MEMBER_OFFSET_INIT(mm_struct_arg_start, "mm_struct", "arg_start");
 	GCORE_MEMBER_OFFSET_INIT(mm_struct_arg_end, "mm_struct", "arg_end");
