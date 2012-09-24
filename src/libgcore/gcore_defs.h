@@ -938,6 +938,12 @@ struct gcore_size_table
 #define GCORE_MEMBER_SIZE_INIT(X, Y, Z) (GCORE_ASSIGN_SIZE(X) = MEMBER_SIZE(Y, Z))
 #define GCORE_STRUCT_SIZE_INIT(X, Y) (GCORE_ASSIGN_SIZE(X) = STRUCT_SIZE(Y))
 
+#define GCORE_INVALID_MEMBER(X) (gcore_offset_table.X == INVALID_OFFSET)
+
+#define GCORE_ANON_MEMBER_OFFSET_REQUEST ((struct datatype_member *)(-2))
+#define GCORE_ANON_MEMBER_OFFSET(X,Y)    datatype_info((X), (Y), GCORE_ANON_MEMBER_OFFSET_REQUEST)
+#define GCORE_ANON_MEMBER_OFFSET_INIT(X, Y, Z) (GCORE_ASSIGN_OFFSET(X) = ANON_MEMBER_OFFSET(Y, Z))
+
 extern struct gcore_offset_table gcore_offset_table;
 extern struct gcore_size_table gcore_size_table;
 
