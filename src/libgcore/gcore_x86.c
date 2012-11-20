@@ -2258,4 +2258,28 @@ ulong gcore_arch_get_gate_vma(void)
 #endif
 }
 
+char *gcore_arch_vma_name(ulong vma)
+{
+	ulong mm, vm_start, vdso;
+
+	readmem(vma + OFFSET(vm_area_struct_vm_mm), KVADDR, &mm, sizeof(mm),
+		"gcore_arch_vma_name: vma->vm_mm",
+		gcore_verbose_error_handle());
+
+	readmem(vma + OFFSET(vm_area_struct_vm_start), KVADDR, &vm_start,
+		sizeof(vm_start), "gcore_arch_vma_name: vma->vm_start",
+		gcore_verbose_error_handle());
+
+	readmem(mm + GCORE_OFFSET(mm_struct_context) +
+		GCORE_OFFSET(mm_context_t_vdso), KVADDR, &vdso,	sizeof(vdso),
+		"gcore_arch_vma_name: mm->context.vdso",
+		gcore_verbose_error_handle());
+
+	if (mm && vm_start == vdso)
+		return "[vdso]";
+	if (vma == symbol_value("gate_vma"))
+		return "[vsyscall]";
+	return NULL;
+}
+
 #endif /* defined(X86) || defined(X86_64) */

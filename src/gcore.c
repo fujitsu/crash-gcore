@@ -352,10 +352,12 @@ static void gcore_offset_table_init(void)
 	if (GCORE_INVALID_MEMBER(inode_i_nlink))
 		GCORE_ANON_MEMBER_OFFSET_INIT(inode_i_nlink, "inode", "i_nlink");
 	GCORE_MEMBER_OFFSET_INIT(nsproxy_pid_ns, "nsproxy", "pid_ns");
+	GCORE_MEMBER_OFFSET_INIT(mm_context_t_vdso, "mm_context_t", "vdso");
 	GCORE_MEMBER_OFFSET_INIT(mm_struct_arg_start, "mm_struct", "arg_start");
 	GCORE_MEMBER_OFFSET_INIT(mm_struct_arg_end, "mm_struct", "arg_end");
 	GCORE_MEMBER_OFFSET_INIT(mm_struct_map_count, "mm_struct", "map_count");
 	GCORE_MEMBER_OFFSET_INIT(mm_struct_saved_auxv, "mm_struct", "saved_auxv");
+	GCORE_MEMBER_OFFSET_INIT(mm_struct_context, "mm_struct", "context");
 	GCORE_MEMBER_OFFSET_INIT(pid_level, "pid", "level");
 	GCORE_MEMBER_OFFSET_INIT(pid_namespace_level, "pid_namespace", "level");
         if (MEMBER_EXISTS("pt_regs", "ax"))
@@ -476,6 +478,7 @@ static void gcore_offset_table_init(void)
 static void gcore_size_table_init(void)
 {
 	GCORE_STRUCT_SIZE_INIT(i387_union, "i387_union");
+	GCORE_STRUCT_SIZE_INIT(mm_context_t, "mm_context_t");
 	GCORE_MEMBER_SIZE_INIT(mm_struct_saved_auxv, "mm_struct", "saved_auxv");
 	GCORE_MEMBER_SIZE_INIT(thread_struct_ds, "thread_struct", "ds");
 	GCORE_MEMBER_SIZE_INIT(thread_struct_es, "thread_struct", "es");
