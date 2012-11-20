@@ -144,4 +144,9 @@ ulong gcore_arch_get_gate_vma(void)
 	return symbol_value("gate_vma");
 }
 
+char *gcore_arch_vma_name(ulong vma)
+{
+	return NULL;
+}
+
 #endif /* defined(ARM) */
