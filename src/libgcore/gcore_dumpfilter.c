@@ -99,8 +99,13 @@ ulong gcore_dumpfilter_vma_dump_size(ulong vma)
 		    : is_filtered(GCORE_DUMPFILTER_HUGETLB_PRIVATE))
 			goto whole;
 
-        /* Do not dump I/O mapped devices or special mappings */
-        if (vm_flags & (VM_IO | VM_RESERVED))
+        /* Do not dump I/O mapped devices */
+        if (vm_flags & VM_IO)
+		goto nothing;
+
+	/* Do not dump special mappings */
+	if (GCORE_VALID_MEMBER(mm_struct_reserved_vm)
+	    && (vm_flags & VM_RESERVED))
 		goto nothing;
 
         /* By default, dump shared memory if mapped from an anonymous file. */

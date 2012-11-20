@@ -356,6 +356,7 @@ static void gcore_offset_table_init(void)
 	GCORE_MEMBER_OFFSET_INIT(mm_struct_arg_start, "mm_struct", "arg_start");
 	GCORE_MEMBER_OFFSET_INIT(mm_struct_arg_end, "mm_struct", "arg_end");
 	GCORE_MEMBER_OFFSET_INIT(mm_struct_map_count, "mm_struct", "map_count");
+	GCORE_MEMBER_OFFSET_INIT(mm_struct_reserved_vm, "mm_struct", "reserved_vm");
 	GCORE_MEMBER_OFFSET_INIT(mm_struct_saved_auxv, "mm_struct", "saved_auxv");
 	GCORE_MEMBER_OFFSET_INIT(mm_struct_context, "mm_struct", "context");
 	GCORE_MEMBER_OFFSET_INIT(pid_level, "pid", "level");
