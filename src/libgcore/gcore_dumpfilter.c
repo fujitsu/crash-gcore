@@ -18,6 +18,15 @@
 
 static ulong dumpfilter = GCORE_DUMPFILTER_DEFAULT;
 
+static int always_dump_vma(ulong vma)
+{
+	if (vma == gcore_arch_get_gate_vma())
+		return TRUE;
+	if (gcore_arch_vma_name(vma))
+		return TRUE;
+	return FALSE;
+}
+
 /**
  * Set a given filter value to the current state
  * @filter a filter value given from command line
@@ -76,9 +85,9 @@ ulong gcore_dumpfilter_vma_dump_size(ulong vma)
 	vm_pgoff = ULONG(vma_cache + OFFSET(vm_area_struct_vm_pgoff));
 	anon_vma = ULONG(vma_cache + GCORE_OFFSET(vm_area_struct_anon_vma));
 
-        /* The vma can be set up to tell us the answer directly.  */
-        if (vm_flags & VM_ALWAYSDUMP)
-                goto whole;
+        /* always dump the vdso and vsyscall sections */
+	if (always_dump_vma(vma))
+		goto whole;
 
         /* Hugetlb memory check */
 	if (vm_flags & VM_HUGETLB)
