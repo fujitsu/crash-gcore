@@ -2282,4 +2282,44 @@ char *gcore_arch_vma_name(ulong vma)
 	return NULL;
 }
 
+/**
+ * VM_ALWAYSDUMP flag was removed when introducing VM_DONTDUMP
+ * flag. We need to determine which flag is present on a given
+ * dumpfile. A simple idea is to look up existence of symbol
+ * always_dump_vma, which was again newly introduced at the same time
+ * of removal of VM_ALWAYSDUMP flag. Unfortunately, gcc removes the
+ * function by function inlining optimization, we cannot use
+ * it. Instead, as a workaround, we look up vsyscall page and try to
+ * determine if the VM_ALWAYSDUMP flag is being set on the vma
+ * corresponding to vsyscall page.
+ */
+int gcore_arch_vsyscall_has_vm_alwaysdump_flag(void)
+{
+	char *vma_cache;
+	ulong target_vma, gate_vma, vm_flags;
+
+	target_vma = 0UL;
+
+	if ((gate_vma = gcore_arch_get_gate_vma()))
+		target_vma = gate_vma;
+	else {
+		ulong vma, index, mmap = 0UL;
+
+		FOR_EACH_VMA_OBJECT(vma, index, mmap, gate_vma) {
+			if (gcore_arch_vma_name(vma)) {
+				target_vma = vma;
+				break;
+			}
+		}
+	}
+
+	if (!target_vma)
+		return FALSE;
+
+	vma_cache = fill_vma_cache(target_vma);
+	vm_flags = ULONG(vma_cache + OFFSET(vm_area_struct_vm_flags));
+
+	return (vm_flags & VM_ALWAYSDUMP) ? TRUE : FALSE;
+}
+
 #endif /* defined(X86) || defined(X86_64) */

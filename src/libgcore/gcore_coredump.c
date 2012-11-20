@@ -50,8 +50,6 @@ static void alignfile(int fd, loff_t *foffset);
 static void writenote(struct memelfnote *men, int fd, loff_t *foffset);
 static void write_note_info(int fd, struct elf_note_info *info, loff_t *foffset);
 static size_t get_note_info_size(struct elf_note_info *info);
-static ulong first_vma(ulong mmap, ulong gate_vma);
-static ulong next_vma(ulong this_vma, ulong gate_vma);
 
 static inline int thread_group_leader(ulong task);
 
@@ -658,12 +656,12 @@ get_note_info_size(struct elf_note_info *info)
 	return info->size;
 }
 
-static ulong first_vma(ulong mmap, ulong gate_vma)
+ulong first_vma(ulong mmap, ulong gate_vma)
 {
 	return mmap ? mmap : gate_vma;
 }
 
-static ulong next_vma(ulong this_vma, ulong gate_vma)
+ulong next_vma(ulong this_vma, ulong gate_vma)
 {
 	ulong next;
 
