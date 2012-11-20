@@ -500,4 +500,7 @@ static void gcore_machdep_init(void)
 		gcore_machdep->vm_alwaysdump = 0x04000000;
 	else
 		gcore_machdep->vm_alwaysdump = 0x08000000;
+
+	if (!gcore_arch_vsyscall_has_vm_alwaysdump_flag())
+		gcore_machdep->vm_alwaysdump = 0x00000000;
 }

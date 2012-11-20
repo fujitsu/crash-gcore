@@ -89,6 +89,9 @@ ulong gcore_dumpfilter_vma_dump_size(ulong vma)
 	if (always_dump_vma(vma))
 		goto whole;
 
+	if (!gcore_machdep->vm_alwaysdump && (vm_flags & VM_DONTDUMP))
+		goto nothing;
+
         /* Hugetlb memory check */
 	if (vm_flags & VM_HUGETLB)
 		if ((vm_flags & VM_SHARED)
