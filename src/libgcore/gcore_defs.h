@@ -481,6 +481,7 @@ typedef elf_greg_t elf_gregset_t[ELF_NGREG];
 extern int gcore_is_arch_32bit_emulation(struct task_context *tc);
 extern ulong gcore_arch_get_gate_vma(void);
 extern char *gcore_arch_vma_name(ulong vma);
+extern int gcore_arch_vsyscall_has_vm_alwaysdump_flag(void);
 
 /*
  * gcore_coredump_table.c
@@ -807,8 +808,12 @@ struct elf_note_info {
 #define VM_IO           0x00004000      /* Memory mapped I/O or similar */
 #define VM_RESERVED     0x00080000      /* Count as reserved_vm like IO */
 #define VM_HUGETLB      0x00400000      /* Huge TLB Page VM */
+#define VM_DONTDUMP	0x04000000	/* Do not include in the core dump */
 #define VM_ALWAYSDUMP   (gcore_machdep->vm_alwaysdump)
                                         /* Always include in core dumps */
+
+extern ulong first_vma(ulong mmap, ulong gate_vma);
+extern ulong next_vma(ulong this_vma, ulong gate_vma);
 
 #define FOR_EACH_VMA_OBJECT(vma, index, mmap, gate_vma)			\
 	for (index = 0, vma = first_vma(mmap, gate_vma); vma;		\

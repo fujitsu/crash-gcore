@@ -149,4 +149,9 @@ ulong gcore_arch_vma_name(ulong vma)
 	return NULL;
 }
 
+int gcore_arch_vsyscall_has_vm_alwaysdump_flag(void)
+{
+	return FALSE;
+}
+
 #endif /* defined(ARM) */
