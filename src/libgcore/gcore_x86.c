@@ -1563,28 +1563,8 @@ enum {
 	GCORE_SYSCALL_OPCODE_BYTES = 2
 };
 
-/*
- * Note: Why I don't look at opcode for sysenter instruction?
- * ==========================================================
- *
- * - There are only three kinds of instructions to perform system call
- *   invocation: sysenter, syscall and int 0x80. So, in order to
- *   indicate sysenter is used now, it's sufficient to show syscall
- *   and int 0x80 are not used now.
- *
- * - We can avoid assembly's optimization problem causing to change
- *   relative address where sysenter is placed:
- *   VDSO32_SYSENTER_RETURN. To find syscall and int 0x80, it's
- *   sufficient to look at the address (%eip - 2), where 2 is the
- *   length of system call instructions.
- *
- * - The opcode of sysenter is the following, although it's not used
- *   actually:
- *
- * static const unsigned char GCORE_OPCODE_SYSENTER[] = {0x0f, 0x05};
- *
- */
-static const unsigned char GCORE_OPCODE_SYSCALL[] = {0x0f, 0x34};
+static const unsigned char GCORE_OPCODE_SYSCALL[] = {0x0f, 0x05};
+static const unsigned char GCORE_OPCODE_SYSENTER[] = {0x0f, 0x34};
 static const unsigned char GCORE_OPCODE_INT80[] = {0xcd, 0x80};
 
 /**
@@ -1619,7 +1599,21 @@ check_kernel_entry(struct task_context *target, struct user_regs_struct *regs)
 		if (memcmp(opcode, GCORE_OPCODE_INT80, sizeof(opcode)) == 0)
 			return GCORE_KERNEL_ENTRY_INT80;
 
-		return GCORE_KERNEL_ENTRY_SYSENTER32;
+		if (!uvtop(target,
+			   regs->ip
+			   - 2 /* jmp enter_kernel or int 0x80 */
+			   - 7 /* nop alignment bytes */
+			   - sizeof(opcode), /* sysenter */
+			   &paddr, FALSE))
+			return GCORE_KERNEL_ENTRY_IA32_UNKNOWN;
+
+		readmem(paddr, PHYSADDR, opcode, sizeof(opcode),
+			"check_context: opcode 2", gcore_verbose_error_handle());
+
+		if (memcmp(opcode, GCORE_OPCODE_SYSENTER, sizeof(opcode)) == 0)
+			return GCORE_KERNEL_ENTRY_SYSENTER32;
+
+		return GCORE_KERNEL_ENTRY_IA32_UNKNOWN;
 
 	} else {
 		const int vector = (int)~regs->orig_ax;
