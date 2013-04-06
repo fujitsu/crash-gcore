@@ -94,11 +94,28 @@ ulong gcore_dumpfilter_vma_dump_size(ulong vma)
 		goto nothing;
 
         /* Hugetlb memory check */
-	if (vm_flags & VM_HUGETLB)
+	if (vm_flags & VM_HUGETLB) {
 		if ((vm_flags & VM_SHARED)
 		    ? is_filtered(GCORE_DUMPFILTER_HUGETLB_SHARED)
 		    : is_filtered(GCORE_DUMPFILTER_HUGETLB_PRIVATE))
 			goto whole;
+
+		/* Hugepage memory filtering was introduced at the
+		 * time where VM_NODUMP or VM_DONTDUMP flag was not
+		 * introduced yet, so there was still VM_RESERVED
+		 * flag. At that time, vmas with VM_HUGETLB flag
+		 * always had VM_RESERVED flag, too. This means that
+		 * if the vma had VM_HUGETLB flag and it was not
+		 * filtered by neither of two filtering types,
+		 * GCORE_DUMPFILTER_HUGETLB_{SHARED, PRIVATE}, then
+		 * the memory was always filtered by VM_RESEARVED
+		 * check below. However, after VM_NODUMP or
+		 * VM_DONTDUMP was introduced, VM_RESERVED flag was
+		 * removed and the check to see if VM_RESERVED flag
+		 * was set, was also removed. This goto nothing is
+		 * needed instead of checking the VM_RESERVED flag. */
+		goto nothing;
+	}
 
         /* Do not dump I/O mapped devices */
         if (vm_flags & VM_IO)
