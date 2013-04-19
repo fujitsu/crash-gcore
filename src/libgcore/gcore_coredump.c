@@ -167,17 +167,17 @@ void gcore_coredump(void)
 	write_note_info(gcore->fd, info, &foffset);
 	progressf("done.\n");
 
+	/* Align to page. Segment needs to begin with offset multiple
+	 * of block size, typically multiple of 512 bytes, in order to
+	 * make skipped page-faulted pages as holes. See the
+	 * page-fault code below. */
+	if (lseek(gcore->fd, dataoff - foffset, SEEK_CUR) < 0) {
+		error(FATAL, "%s: lseek: %s\n", gcore->corename,
+		      strerror(errno));
+	}
+
 	buffer = GETBUF(PAGE_SIZE);
 	BZERO(buffer, PAGE_SIZE);
-
-	{
-		size_t len;
-
-		len = dataoff - foffset;
-		if ((size_t)write(gcore->fd, buffer, len) != len)
-			error(FATAL, "%s: write: %s\n", gcore->corename,
-			      strerror(errno));
-	}
 
 	progressf("Writing PT_LOAD segment ... \n");
 	FOR_EACH_VMA_OBJECT(vma, index, mmap, gate_vma) {
@@ -197,15 +197,43 @@ void gcore_coredump(void)
 				readmem(paddr, PHYSADDR, buffer, PAGE_SIZE,
 					"readmem vma list",
 					gcore_verbose_error_handle());
+				if (write(gcore->fd, buffer, PAGE_SIZE)
+				    != PAGE_SIZE)
+					error(FATAL, "%s: write: %s\n",
+					      gcore->corename,
+					      strerror(errno));
 			} else {
 				pagefaultf("page fault at %lx\n", addr);
-				BZERO(buffer, PAGE_SIZE);
+
+				/* Fill unavailable page-faulted pages
+				 * with 0 for ease of implementation;
+				 * to be honest, I want to avoid
+				 * restructuring program header table.
+				 *
+				 * Also, we do skip these pages by
+				 * lseek(). Recent filesystems support
+				 * sparse file that doesn't allocate
+				 * actual blocks if there are no
+				 * corresponding write; such part is
+				 * called hole. Hence, the skip works
+				 * just like a filter for page-faulted
+				 * pages.
+				 *
+				 * Note, however, that we don't reedit
+				 * program headers and these pages are
+				 * logically present on corefile as
+				 * zero-filled pages. If copying the
+				 * corefile on system that doesn't
+				 * support sparse file, resulting
+				 * corefile can be much larger than
+				 * original size.
+				 */
+				if (lseek(gcore->fd, PAGE_SIZE, SEEK_CUR) < 0) {
+					error(FATAL, "%s: lseek: %s\n",
+					      gcore->corename,
+					      strerror(errno));
+				}
 			}
-
-			if (write(gcore->fd, buffer, PAGE_SIZE) != PAGE_SIZE)
-				error(FATAL, "%s: write: %s\n", gcore->corename,
-				      strerror(errno));
-
 		}
 	}
 	progressf("done.\n");
