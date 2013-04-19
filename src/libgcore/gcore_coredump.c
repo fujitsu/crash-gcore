@@ -53,6 +53,8 @@ static size_t get_note_info_size(struct elf_note_info *info);
 
 static inline int thread_group_leader(ulong task);
 
+static int uvtop_quiet(ulong vaddr, physaddr_t *paddr);
+
 void gcore_coredump(void)
 {
 	struct thread_group_list *tglist = NULL;
@@ -193,7 +195,7 @@ void gcore_coredump(void)
 		for (addr = vm_start; addr < end; addr += PAGE_SIZE) {
 			physaddr_t paddr;
 
-			if (uvtop(CURRENT_CONTEXT(), addr, &paddr, FALSE)) {
+			if (uvtop_quiet(addr, &paddr)) {
 				readmem(paddr, PHYSADDR, buffer, PAGE_SIZE,
 					"readmem vma list",
 					gcore_verbose_error_handle());
@@ -912,3 +914,52 @@ compat_fill_auxv_note(struct elf_note_info *info, ulong task)
 }
 
 #endif /* GCORE_ARCH_COMPAT */
+
+static int uvtop_quiet(ulong vaddr, physaddr_t *paddr)
+{
+	FILE *saved_fp = fp;
+	int page_present;
+
+	/* uvtop() with verbose FALSE returns wrong physical address
+	 * for gate_vma. The problem is that kvtop() wrongly thinks of
+	 * the fixed address 0xffffffffff600000 as the one that
+	 * belongs to direct mapping region and calculates the result
+	 * by substracting offset of direct-mapping space from the
+	 * fixed address. However, it's necessary to do paging to get
+	 * correct physical address.
+	 *
+	 * uvtop() does paging if verbose == TRUE. Then, it retuns
+	 * correct physical address.
+	 *
+	 * Next output of vtop clarifies this bug, where the first
+	 * PHYSICAL showing 0x7f600000 is wrong one and the PHYSICAL
+	 * in the last line showing 0x1c08000 is correct one.
+	 *
+	 * crash> vtop 0xffffffffff600000
+	 * VIRTUAL           PHYSICAL        
+	 * ffffffffff600000  7f600000        
+	 *
+	 * PML4 DIRECTORY: ffffffff81a85000
+	 * PAGE DIRECTORY: 1a87067
+	 *    PUD: 1a87ff8 => 1a88067
+	 *    PMD: 1a88fd8 => 28049067
+	 *    PTE: 28049000 => 1c08165
+	 *   PAGE: 1c08000
+	 *
+	 *   PTE    PHYSICAL  FLAGS
+	 * 1c08165   1c08000  (PRESENT|USER|ACCESSED|DIRTY|GLOBAL)
+	 *
+	 *       PAGE        PHYSICAL      MAPPING       INDEX CNT FLAGS
+	 * ffffea00000621c0   1c08000                0        0  1 20000000000400
+	 *
+	 * The remaining problem is that if specifying TRUE to
+	 * verbose, same information is displayed during gcore
+	 * processing. To avoid this, we assign the file pointer to
+	 * /dev/null to fp during call of uvtop().
+	 */
+	fp = pc->nullfp;
+	page_present = uvtop(CURRENT_CONTEXT(), vaddr, paddr, TRUE);
+	fp = saved_fp;
+
+	return page_present;
+}
