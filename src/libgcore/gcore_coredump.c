@@ -741,7 +741,7 @@ fill_prstatus_note(struct elf_note_info *info, struct elf_thread_core_info *t,
                  * This is the record for the group leader.  It shows the
                  * group-wide total, not its individual thread total.
                  */
-                ggt->thread_group_cputime(t->task, tglist, &cputime);
+                ggt->thread_group_cputime(t->task, &cputime);
                 cputime_to_timeval(cputime.utime, &t->prstatus.native.pr_utime);
                 cputime_to_timeval(cputime.stime, &t->prstatus.native.pr_stime);
         } else {
@@ -823,7 +823,7 @@ compat_fill_prstatus_note(struct elf_note_info *info,
                  * This is the record for the group leader.  It shows the
                  * group-wide total, not its individual thread total.
                  */
-                ggt->thread_group_cputime(t->task, tglist, &cputime);
+                ggt->thread_group_cputime(t->task, &cputime);
                 cputime_to_compat_timeval(cputime.utime, &t->prstatus.compat.pr_utime);
                 cputime_to_compat_timeval(cputime.stime, &t->prstatus.compat.pr_stime);
         } else {

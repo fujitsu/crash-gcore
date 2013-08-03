@@ -819,7 +819,6 @@ struct gcore_coredump_table {
 	pid_t (*task_session)(ulong task);
 
 	void (*thread_group_cputime)(ulong task,
-				     const struct thread_group_list *threads,
 				     struct task_cputime *cputime);
 
 	__kernel_uid_t (*task_uid)(ulong task);

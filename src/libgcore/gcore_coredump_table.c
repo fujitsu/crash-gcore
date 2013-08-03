@@ -28,11 +28,9 @@ static inline pid_t task_pid_vnr(ulong task);
 static inline pid_t task_pgrp_vnr(ulong task);
 static inline pid_t task_session_vnr(ulong task);
 static void
-thread_group_cputime_v0(ulong task, const struct thread_group_list *threads,
-			struct task_cputime *cputime);
+thread_group_cputime_v0(ulong task, struct task_cputime *cputime);
 static void
-thread_group_cputime_v22(ulong task, const struct thread_group_list *threads,
-			 struct task_cputime *cputime);
+thread_group_cputime_v22(ulong task, struct task_cputime *cputime);
 static inline __kernel_uid_t task_uid_v0(ulong task);
 static inline __kernel_uid_t task_uid_v28(ulong task);
 static inline __kernel_gid_t task_gid_v0(ulong task);
@@ -265,8 +263,7 @@ task_session_vnr(ulong task)
 }
 
 static void
-thread_group_cputime_v0(ulong task, const struct thread_group_list *threads,
-			struct task_cputime *cputime)
+thread_group_cputime_v0(ulong task, struct task_cputime *cputime)
 {
 	ulong signal;
 	ulong utime, signal_utime, stime, signal_stime;
@@ -300,10 +297,10 @@ thread_group_cputime_v0(ulong task, const struct thread_group_list *threads,
 }
 
 static void
-thread_group_cputime_v22(ulong task, const struct thread_group_list *threads,
-			 struct task_cputime *times)
+thread_group_cputime_v22(ulong task, struct task_cputime *times)
 {
-	const struct thread_group_list *t;
+	ulong i;
+	struct task_context *tc;
 	ulong sighand, signal, signal_utime, signal_stime;
 	uint64_t sum_sched_runtime;
 
@@ -320,27 +317,32 @@ thread_group_cputime_v22(ulong task, const struct thread_group_list *threads,
 		sizeof(signal), "thread_group_cputime_v22: signal",
 		gcore_verbose_error_handle());
 
-	for (t = threads; t; t = t->next) {
-		ulong utime, stime;
-		uint64_t sum_exec_runtime;
+	for (tc = FIRST_CONTEXT(), i = 0; i < RUNNING_TASKS(); ++tc, ++i) {
+		if (task_tgid(tc->task) == task_tgid(task)) {
+			ulong utime, stime;
+			uint64_t sum_exec_runtime;
 
-		readmem(t->task + OFFSET(task_struct_utime), KVADDR, &utime,
-			sizeof(utime), "thread_group_cputime_v22: utime",
-			gcore_verbose_error_handle());
+			readmem(tc->task + OFFSET(task_struct_utime), KVADDR,
+				&utime,	sizeof(utime),
+				"thread_group_cputime_v22: utime",
+				gcore_verbose_error_handle());
 
-		readmem(t->task + OFFSET(task_struct_stime), KVADDR, &stime,
-			sizeof(stime), "thread_group_cputime_v22: stime",
-			gcore_verbose_error_handle());
+			readmem(tc->task + OFFSET(task_struct_stime), KVADDR,
+				&stime, sizeof(stime),
+				"thread_group_cputime_v22: stime",
+				gcore_verbose_error_handle());
 
-		readmem(t->task + GCORE_OFFSET(task_struct_se) +
-			GCORE_OFFSET(sched_entity_sum_exec_runtime), KVADDR,
-			&sum_exec_runtime, sizeof(sum_exec_runtime),
-			"thread_group_cputime_v22: sum_exec_runtime",
-			gcore_verbose_error_handle());
+			readmem(tc->task + GCORE_OFFSET(task_struct_se) +
+				GCORE_OFFSET(sched_entity_sum_exec_runtime),
+				KVADDR,	&sum_exec_runtime,
+				sizeof(sum_exec_runtime),
+				"thread_group_cputime_v22: sum_exec_runtime",
+				gcore_verbose_error_handle());
 
-		times->utime = cputime_add(times->utime, utime);
-		times->stime = cputime_add(times->stime, stime);
-		times->sum_exec_runtime += sum_exec_runtime;
+			times->utime = cputime_add(times->utime, utime);
+			times->stime = cputime_add(times->stime, stime);
+			times->sum_exec_runtime += sum_exec_runtime;
+		}
 	}
 
 	readmem(signal + GCORE_OFFSET(signal_struct_utime), KVADDR,
