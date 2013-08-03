@@ -125,20 +125,6 @@ typedef int user_regset_get_fn(struct task_context *target,
 			       unsigned int size,
 			       void *buf);
 
-/**
- * user_regset_writeback_fn - type of @writeback function in &struct user_regset
- * @target:	thread being examined
- * @regset:	regset being examined
- * @immediate:	zero if writeback at completion of next context switch is OK
- *
- * This call is optional; usually the pointer is %NULL.
- *
- * Return TRUE on success or FALSE otherwise.
- */
-typedef int user_regset_writeback_fn(struct task_context *target,
-				     const struct user_regset *regset,
-				     int immediate);
-
 struct elf_thread_core_info;
 
 /**
@@ -168,19 +154,17 @@ typedef void user_regset_callback_fn(struct elf_thread_core_info *t,
  * resource and the operations necessary in core dump process.
  *
  * @get provides a means of retrieving the corresponding resource;
- * @active provides a means of checking if the resource exists;
- * @writeback performs some architecture-specific operation to make it
- * reflect the current actual state; @size means a size of the machine
- * resource in bytes; @core_note_type is a type of note information;
- * @name is a note section name representing the owner originator that
- * handles this kind of the machine resource; @callback is an extra
- * operation to edit another note information of the same thread,
- * required when the machine resource is collected.
+ * @active provides a means of checking if the resource exists; @size
+ * means a size of the machine resource in bytes; @core_note_type is a
+ * type of note information; @name is a note section name representing
+ * the owner originator that handles this kind of the machine
+ * resource; @callback is an extra operation to edit another note
+ * information of the same thread, required when the machine resource
+ * is collected.
  */
 struct user_regset {
 	user_regset_get_fn		*get;
 	user_regset_active_fn		*active;
-	user_regset_writeback_fn	*writeback;
 	unsigned int 			size;
 	unsigned int 			core_note_type;
 	char                            *name;

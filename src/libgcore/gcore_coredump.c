@@ -466,16 +466,10 @@ fill_thread_core_info(struct elf_thread_core_info *t,
 	info->fill_prstatus_note(info, t, tglist, pr_reg_buf);
         *total += notesize(&t->notes[0]);
 
-	if (view->regsets[0].writeback)
-		view->regsets[0].writeback(task_to_context(t->task),
-					   &view->regsets[0], 1);
-
 	for (i = 1; i < view->n; ++i) {
 		const struct user_regset *regset = &view->regsets[i];
 		void *data;
 
-		if (regset->writeback)
-			regset->writeback(task_to_context(t->task), regset, 1);
 		if (!regset->core_note_type)
 			continue;
 		if (regset->active &&
