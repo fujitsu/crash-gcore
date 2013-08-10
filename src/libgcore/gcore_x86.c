@@ -44,9 +44,11 @@ static ulong gcore_x86_64_get_cpu_pda_oldrsp(int cpu);
 static ulong gcore_x86_64_get_cpu__pda_oldrsp(int cpu);
 #endif
 
-static ulong gcore_x86_get_thread_struct_fpu_thread_xstate(struct task_context *tc);
+static ulong
+gcore_x86_get_thread_struct_fpu_thread_xstate(struct task_context *tc);
 static ulong gcore_x86_get_thread_struct_fpu_thread_xstate_size(void);
-static ulong gcore_x86_get_thread_struct_thread_xstate(struct task_context *tc);
+static ulong
+gcore_x86_get_thread_struct_thread_xstate(struct task_context *tc);
 static ulong gcore_x86_get_thread_struct_thread_xstate_size(void);
 static ulong gcore_x86_get_thread_struct_i387(struct task_context *tc);
 static ulong gcore_x86_get_thread_struct_i387_size(void);
@@ -365,18 +367,6 @@ static int xfpregs_get(struct task_context *target,
 	return 0;
 }
 
-static void xfpregs_callback(struct elf_thread_core_info *t,
-			    const struct user_regset *regset)
-{
-#ifdef X86_64
-	if (gcore_is_arch_32bit_emulation(CURRENT_CONTEXT())) {
-		t->prstatus.compat.pr_fpvalid = 1;
-		return;
-	}
-#endif
-	t->prstatus.native.pr_fpvalid = 1;
-}
-
 static inline int
 fpregs_active(struct task_context *target,
 	      const struct user_regset *regset)
@@ -529,6 +519,8 @@ convert_from_fxsr(struct user_i387_ia32_struct *env, struct task_context *target
 			
 		env->fos = 0xffff0000 | ds;
 		env->fcs = ULONG(pt_regs_buf + ms->pto.cs);
+
+		FREEBUF(pt_regs_buf);
 	}
 #endif
 
@@ -782,10 +774,14 @@ static int regset_tls_active(struct task_context *target,
 		"regset_tls_active: t",
 		gcore_verbose_error_handle());
 
-	for (i = 0; i < nr_entries; ++i)
-		if (!desc_empty(&tls_array[i]))
+	for (i = 0; i < nr_entries; ++i) {
+		if (!desc_empty(&tls_array[i])) {
+			FREEBUF(tls_array);
 			return TRUE;
+		}
+	}
 
+	FREEBUF(tls_array);
 	return FALSE;
 }
 
@@ -812,6 +808,7 @@ static int regset_tls_get(struct task_context *target,
 		fill_user_desc(&info[i], GDT_ENTRY_TLS_MIN + i, &tls_array[i]);
 	}
 
+	FREEBUF(tls_array);
 	return 0;
 }
 
@@ -1380,9 +1377,7 @@ static ulong gcore_x86_64_get_per_cpu__old_rsp(int cpu)
 static ulong gcore_x86_64_get_cpu_pda_oldrsp(int cpu)
 {
 	ulong oldrsp;
-	char *cpu_pda_buf;
-
-	cpu_pda_buf = GETBUF(SIZE(x8664_pda));
+	char *cpu_pda_buf = GETBUF(SIZE(x8664_pda));
 
 	readmem(symbol_value("cpu_pda") + sizeof(ulong) * SIZE(x8664_pda),
 		KVADDR, cpu_pda_buf, SIZE(x8664_pda),
@@ -1391,6 +1386,7 @@ static ulong gcore_x86_64_get_cpu_pda_oldrsp(int cpu)
 
 	oldrsp = ULONG(cpu_pda_buf + GCORE_OFFSET(x8664_pda_oldrsp));
 
+	FREEBUF(cpu_pda_buf);
 	return oldrsp;
 }
 
@@ -1527,7 +1523,7 @@ static int get_active_regs(struct task_context *target,
 	}
 
 	if ((NETDUMP_DUMPFILE() || KDUMP_DUMPFILE()) &&
-	    exist_regs_in_elf_notes(target)) {
+	    exist_regs_in_elf_notes((void *)target)) {
 		struct user_regs_struct *note =	get_regs_from_elf_notes(target);
 		memcpy(regs, note, sizeof(struct user_regs_struct));
 		return TRUE;
@@ -1764,6 +1760,8 @@ static int genregs_get(struct task_context *target,
 	regs->r14 = ULONG(pt_regs_buf + ms->pto.r14);
 	regs->r15 = ULONG(pt_regs_buf + ms->pto.r15);
 
+	FREEBUF(pt_regs_buf);
+
 	switch (check_kernel_entry(target, regs)) {
 	case GCORE_KERNEL_ENTRY_UNKNOWN:
 		error(WARNING, "unknown kernel entry.\n");
@@ -1927,7 +1925,6 @@ static struct user_regset x86_64_regsets[] = {
 		.size = sizeof(struct user_i387_struct),
 		.active = xfpregs_active,
 		.get = xfpregs_get,
-                .callback = xfpregs_callback
 	},
 	[REGSET_XSTATE] = {
 		.name = "CORE",
@@ -2097,6 +2094,8 @@ static int genregs_get32(struct task_context *target,
 	regs->gs &= 0xffff;
 	regs->ss &= 0xffff;
 
+	FREEBUF(pt_regs_buf);
+
 	/*
 	 * If LAZY_GS is set, 0 is pushed on gs position at kernel
 	 * stack's bottom. Then, gs value we want is at thread->gs,
@@ -2146,7 +2145,6 @@ static struct user_regset x86_32_regsets[] = {
 		.name = "CORE",
 		.size = sizeof(struct user_i387_ia32_struct),
 		.active = fpregs_active, .get = fpregs_get,
-                .callback = xfpregs_callback,
 	},
 	[REGSET_XSTATE] = {
 		.name = "CORE",
@@ -2324,6 +2322,28 @@ int gcore_arch_vsyscall_has_vm_alwaysdump_flag(void)
 	vm_flags = ULONG(vma_cache + OFFSET(vm_area_struct_vm_flags));
 
 	return (vm_flags & VM_ALWAYSDUMP) ? TRUE : FALSE;
+}
+
+int gcore_arch_get_fp_valid(struct task_context *tc)
+{
+	const struct user_regset *regset =
+#ifdef X86_64
+		gcore_is_arch_32bit_emulation(tc)
+		? &x86_32_regsets[REGSET_FP]
+		: &x86_64_regsets[REGSET_FP]
+#else
+		&x86_32_regsets[REGSET_FP]
+#endif
+		;
+	char *buf = GETBUF(regset->size);
+	int retval = FALSE;
+
+	if (regset->active(tc, regset) &&
+	    !regset->get(tc, regset, regset->size, buf))
+		retval = TRUE;
+
+	FREEBUF(buf);
+	return retval;
 }
 
 #endif /* defined(X86) || defined(X86_64) */

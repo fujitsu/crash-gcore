@@ -58,3 +58,9 @@ void gcore_default_regsets_init(void)
 {
 	gcore_default_regsets[REGSET_GENERAL].size = SIZE(pt_regs);
 }
+
+int __attribute__((weak))
+gcore_arch_get_fp_valid(struct task_context *tc)
+{
+	return 0;
+}

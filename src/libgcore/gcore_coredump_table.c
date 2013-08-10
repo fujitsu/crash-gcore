@@ -299,7 +299,6 @@ thread_group_cputime_v0(ulong task, struct task_cputime *cputime)
 static void
 thread_group_cputime_v22(ulong task, struct task_cputime *times)
 {
-	ulong i;
 	struct task_context *tc;
 	ulong sighand, signal, signal_utime, signal_stime;
 	uint64_t sum_sched_runtime;
@@ -317,32 +316,30 @@ thread_group_cputime_v22(ulong task, struct task_cputime *times)
 		sizeof(signal), "thread_group_cputime_v22: signal",
 		gcore_verbose_error_handle());
 
-	for (tc = FIRST_CONTEXT(), i = 0; i < RUNNING_TASKS(); ++tc, ++i) {
-		if (task_tgid(tc->task) == task_tgid(task)) {
-			ulong utime, stime;
-			uint64_t sum_exec_runtime;
+	FOR_EACH_TASK_IN_THREAD_GROUP(task_tgid(CURRENT_TASK()), tc) {
+		ulong utime, stime;
+		uint64_t sum_exec_runtime;
 
-			readmem(tc->task + OFFSET(task_struct_utime), KVADDR,
-				&utime,	sizeof(utime),
-				"thread_group_cputime_v22: utime",
-				gcore_verbose_error_handle());
+		readmem(tc->task + OFFSET(task_struct_utime), KVADDR,
+			&utime,	sizeof(utime),
+			"thread_group_cputime_v22: utime",
+			gcore_verbose_error_handle());
 
-			readmem(tc->task + OFFSET(task_struct_stime), KVADDR,
-				&stime, sizeof(stime),
-				"thread_group_cputime_v22: stime",
-				gcore_verbose_error_handle());
+		readmem(tc->task + OFFSET(task_struct_stime), KVADDR,
+			&stime, sizeof(stime),
+			"thread_group_cputime_v22: stime",
+			gcore_verbose_error_handle());
 
-			readmem(tc->task + GCORE_OFFSET(task_struct_se) +
-				GCORE_OFFSET(sched_entity_sum_exec_runtime),
-				KVADDR,	&sum_exec_runtime,
-				sizeof(sum_exec_runtime),
-				"thread_group_cputime_v22: sum_exec_runtime",
-				gcore_verbose_error_handle());
+		readmem(tc->task + GCORE_OFFSET(task_struct_se) +
+			GCORE_OFFSET(sched_entity_sum_exec_runtime),
+			KVADDR,	&sum_exec_runtime,
+			sizeof(sum_exec_runtime),
+			"thread_group_cputime_v22: sum_exec_runtime",
+			gcore_verbose_error_handle());
 
-			times->utime = cputime_add(times->utime, utime);
-			times->stime = cputime_add(times->stime, stime);
-			times->sum_exec_runtime += sum_exec_runtime;
-		}
+		times->utime = cputime_add(times->utime, utime);
+		times->stime = cputime_add(times->stime, stime);
+		times->sum_exec_runtime += sum_exec_runtime;
 	}
 
 	readmem(signal + GCORE_OFFSET(signal_struct_utime), KVADDR,
