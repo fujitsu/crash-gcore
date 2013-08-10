@@ -19,36 +19,41 @@
 static struct elf_note_info *elf_note_info_init(void);
 
 static void fill_prstatus_note(struct elf_note_info *info,
-			       struct elf_thread_core_info *t,
-			       const struct thread_group_list *tglist,
-			       void *pr_reg);
-static void fill_psinfo_note(struct elf_note_info *info, ulong task);
-static void fill_auxv_note(struct elf_note_info *info, ulong task);
+			       struct task_context *tc,
+			       struct memelfnote *memnote);
+static void fill_psinfo_note(struct elf_note_info *info,
+			     struct task_context *tc,
+			     struct memelfnote *memnote);
+static void fill_auxv_note(struct elf_note_info *info,
+			   struct task_context *tc,
+			   struct memelfnote *memnote);
 
 #ifdef GCORE_ARCH_COMPAT
 static void compat_fill_prstatus_note(struct elf_note_info *info,
-				      struct elf_thread_core_info *t,
-				      const struct thread_group_list *tglist,
-				      void *pr_reg);
-static void compat_fill_psinfo_note(struct elf_note_info *info, ulong task);
-static void compat_fill_auxv_note(struct elf_note_info *info, ulong task);
+				      struct task_context *tc,
+				      struct memelfnote *memnote);
+static void compat_fill_psinfo_note(struct elf_note_info *info,
+				    struct task_context *tc,
+				    struct memelfnote *memnote);
+static void compat_fill_auxv_note(struct elf_note_info *info,
+				  struct task_context *tc,
+				  struct memelfnote *memnote);
 #endif
 
-static int fill_thread_group(struct thread_group_list **tglist);
-static void fill_thread_core_info(struct elf_thread_core_info *t,
-				  struct elf_note_info *info,
-				  const struct user_regset_view *view,
-				  size_t *total,
-				  struct thread_group_list *tglist);
-static int fill_note_info(struct elf_note_info *info,
-			  struct thread_group_list *tglist, int phnum);
+static void fill_elf_header(int phnum);
+static void fill_write_thread_core_info(int fd, struct task_context *tc,
+					struct task_context *dump_tc,
+					struct elf_note_info *info,
+					const struct user_regset_view *view,
+					loff_t *offset, size_t *total);
+static int fill_write_note_info(int fd, struct elf_note_info *info, int phnum,
+				loff_t *offset);
 static void fill_note(struct memelfnote *note, const char *name, int type,
 		      unsigned int sz, void *data);
 
 static int notesize(struct memelfnote *en);
 static void alignfile(int fd, loff_t *foffset);
 static void writenote(struct memelfnote *men, int fd, loff_t *foffset);
-static void write_note_info(int fd, struct elf_note_info *info, loff_t *foffset);
 static size_t get_note_info_size(struct elf_note_info *info);
 
 static inline int thread_group_leader(ulong task);
@@ -57,11 +62,10 @@ static int uvtop_quiet(ulong vaddr, physaddr_t *paddr);
 
 void gcore_coredump(void)
 {
-	struct thread_group_list *tglist = NULL;
 	struct elf_note_info *info;
 	int map_count, phnum;
 	ulong vma, index, mmap;
-	loff_t offset, foffset, dataoff;
+	loff_t offset;
 	char *mm_cache, *buffer = NULL;
 	ulong gate_vma;
 
@@ -74,10 +78,6 @@ void gcore_coredump(void)
 	mmap = ULONG(mm_cache + OFFSET(mm_struct_mmap));
 	map_count = INT(mm_cache + GCORE_OFFSET(mm_struct_map_count));
 
-	progressf("Restoring the thread group ... \n");
-	fill_thread_group(&tglist);
-	progressf("done.\n");
-
 	phnum = map_count;
 	phnum++; /* for note information */
 	gate_vma = gcore_arch_get_gate_vma();
@@ -86,9 +86,7 @@ void gcore_coredump(void)
 
 	info = elf_note_info_init();
 
-	progressf("Retrieving note information ... \n");
-	fill_note_info(info, tglist, phnum);
-	progressf("done.\n");
+	fill_elf_header(phnum);
 
 	progressf("Opening file %s ... \n", gcore->corename);
 	gcore->fd = open(gcore->corename, O_WRONLY|O_TRUNC|O_CREAT,
@@ -104,7 +102,23 @@ void gcore_coredump(void)
 		      strerror(errno));
 	progressf(" done.\n");
 
+	offset = gcore->elf->ops->calc_segment_offset(gcore->elf);
+
+	if (lseek(gcore->fd, offset, SEEK_SET) < 0) {
+		error(FATAL, "%s: lseek: %s\n", gcore->corename,
+		      strerror(errno));
+	}
+
+	progressf("Retrieving and writing note information ... \n");
+	fill_write_note_info(gcore->fd, info, phnum, &offset);
+	progressf("done.\n");
+
 	if (gcore->elf->ops->get_e_shoff(gcore->elf)) {
+		if (lseek(gcore->fd, gcore->elf->ops->get_e_shoff(gcore->elf),
+			  SEEK_SET) < 0) {
+			error(FATAL, "%s: lseek: %s\n", gcore->corename,
+			      strerror(errno));
+		}
 		progressf("Writing section header table ... \n");
 		if (!gcore->elf->ops->write_section_header(gcore->elf,
 							   gcore->fd))
@@ -113,19 +127,24 @@ void gcore_coredump(void)
 		progressf("done.\n");
 	}
 
-	offset = gcore->elf->ops->calc_segment_offset(gcore->elf);
-	foffset = offset;
-
 	progressf("Writing PT_NOTE program header ... \n");
+	if (lseek(gcore->fd, gcore->elf->ops->get_e_phoff(gcore->elf),
+		  SEEK_SET) < 0) {
+		error(FATAL, "%s: lseek: %s\n", gcore->corename,
+		      strerror(errno));
+	}
+	offset = gcore->elf->ops->calc_segment_offset(gcore->elf);
 	gcore->elf->ops->fill_program_header(gcore->elf, PT_NOTE, 0, offset, 0,
 					     get_note_info_size(info), 0, 0);
-	offset += get_note_info_size(info);
 	if (!gcore->elf->ops->write_program_header(gcore->elf, gcore->fd))
 		error(FATAL, "%s: write: %s\n", gcore->corename,
 		      strerror(errno));
 	progressf("done.\n");
 
-	dataoff = offset = roundup(offset, ELF_EXEC_PAGESIZE);
+	offset =
+		gcore->elf->ops->calc_segment_offset(gcore->elf)
+		+ get_note_info_size(info);
+	offset = roundup(offset, ELF_EXEC_PAGESIZE);
 
 	progressf("Writing PT_LOAD program headers ... \n");
 	FOR_EACH_VMA_OBJECT(vma, index, mmap, gate_vma) {
@@ -165,15 +184,16 @@ void gcore_coredump(void)
 	}
 	progressf("done.\n");
 
-	progressf("Writing PT_NOTE segment ... \n");
-	write_note_info(gcore->fd, info, &foffset);
-	progressf("done.\n");
-
 	/* Align to page. Segment needs to begin with offset multiple
 	 * of block size, typically multiple of 512 bytes, in order to
 	 * make skipped page-faulted pages as holes. See the
 	 * page-fault code below. */
-	if (lseek(gcore->fd, dataoff - foffset, SEEK_CUR) < 0) {
+	offset =
+		gcore->elf->ops->calc_segment_offset(gcore->elf)
+		+ get_note_info_size(info);
+	offset = roundup(offset, ELF_EXEC_PAGESIZE);
+
+	if (lseek(gcore->fd, offset, SEEK_SET) < 0) {
 		error(FATAL, "%s: lseek: %s\n", gcore->corename,
 		      strerror(errno));
 	}
@@ -258,38 +278,6 @@ thread_group_leader(ulong task)
 }
 
 static int
-fill_thread_group(struct thread_group_list **tglist)
-{
-	ulong i;
-	struct task_context *tc;
-	struct thread_group_list *l;
-	const uint tgid = task_tgid(CURRENT_TASK());
-	const ulong lead_pid = CURRENT_PID();
-
-	tc = FIRST_CONTEXT();
-	l = NULL;
-	for (i = 0; i < RUNNING_TASKS(); i++, tc++) {
-		if (task_tgid(tc->task) == tgid) {
-			struct thread_group_list *new;
-
-			new = (struct thread_group_list *)
-				GETBUF(sizeof(struct thread_group_list));
-			new->task = tc->task;
-			if (tc->pid == lead_pid || !l) {
-				new->next = l;
-				l = new;
-			} else if (l) {
-				new->next = l->next;
-				l->next = new;
-			}
-		}
-	}
-	*tglist = l;
-
-	return 1;
-}
-
-static int
 task_nice(ulong task)
 {
 	int static_prio;
@@ -302,7 +290,8 @@ task_nice(ulong task)
 }
 
 static void
-fill_psinfo_note(struct elf_note_info *info, ulong task)
+fill_psinfo_note(struct elf_note_info *info, struct task_context *tc,
+		 struct memelfnote *memnote)
 {
 	struct elf_prpsinfo *psinfo;
 	ulong arg_start, arg_end, parent;
@@ -312,13 +301,13 @@ fill_psinfo_note(struct elf_note_info *info, ulong task)
 	char *mm_cache;
 
 	psinfo = (struct elf_prpsinfo *)GETBUF(sizeof(struct elf_prpsinfo));
-        fill_note(&info->psinfo, "CORE", NT_PRPSINFO,
-		  sizeof(struct elf_prpsinfo), psinfo);
+        fill_note(memnote, "CORE", NT_PRPSINFO, sizeof(struct elf_prpsinfo),
+		  psinfo);
 
         /* first copy the parameters from user space */
 	BZERO(psinfo, sizeof(struct elf_prpsinfo));
 
-	mm_cache = fill_mm_struct(task_mm(task, FALSE));
+	mm_cache = fill_mm_struct(task_mm(tc->task, FALSE));
 
 	arg_start = ULONG(mm_cache + GCORE_OFFSET(mm_struct_arg_start));
 	arg_end = ULONG(mm_cache + GCORE_OFFSET(mm_struct_arg_end));
@@ -337,16 +326,16 @@ fill_psinfo_note(struct elf_note_info *info, ulong task)
                         psinfo->pr_psargs[i] = ' ';
         psinfo->pr_psargs[len] = 0;
 
-	readmem(task + GCORE_OFFSET(task_struct_real_parent), KVADDR,
+	readmem(tc->task + GCORE_OFFSET(task_struct_real_parent), KVADDR,
 		&parent, sizeof(parent), "fill_psinfo: real_parent",
 		gcore_verbose_error_handle());
 
 	psinfo->pr_ppid = ggt->task_pid(parent);
-	psinfo->pr_pid = ggt->task_pid(task);
-	psinfo->pr_pgrp = ggt->task_pgrp(task);
-	psinfo->pr_sid = ggt->task_session(task);
+	psinfo->pr_pid = ggt->task_pid(tc->task);
+	psinfo->pr_pgrp = ggt->task_pgrp(tc->task);
+	psinfo->pr_sid = ggt->task_session(tc->task);
 
-	readmem(task + OFFSET(task_struct_state), KVADDR, &state, sizeof(state),
+	readmem(tc->task + OFFSET(task_struct_state), KVADDR, &state, sizeof(state),
 		"fill_psinfo: state", gcore_verbose_error_handle());
 
         i = state ? ffz(~state) + 1 : 0;
@@ -354,19 +343,19 @@ fill_psinfo_note(struct elf_note_info *info, ulong task)
         psinfo->pr_sname = (i > 5) ? '.' : "RSDTZW"[i];
         psinfo->pr_zomb = psinfo->pr_sname == 'Z';
 
-	psinfo->pr_nice = task_nice(task);
+	psinfo->pr_nice = task_nice(tc->task);
 
-	readmem(task + OFFSET(task_struct_flags), KVADDR, &psinfo->pr_flag,
+	readmem(tc->task + OFFSET(task_struct_flags), KVADDR, &psinfo->pr_flag,
 		sizeof(psinfo->pr_flag), "fill_psinfo: flags",
 		gcore_verbose_error_handle());
 
-	uid = ggt->task_uid(task);
-	gid = ggt->task_gid(task);
+	uid = ggt->task_uid(tc->task);
+	gid = ggt->task_gid(tc->task);
 
 	SET_UID(psinfo->pr_uid, (uid_t)uid);
 	SET_GID(psinfo->pr_gid, (gid_t)gid);
 
-	readmem(task + OFFSET(task_struct_comm), KVADDR, &psinfo->pr_fname,
+	readmem(tc->task + OFFSET(task_struct_comm), KVADDR, &psinfo->pr_fname,
 		TASK_COMM_LEN, "fill_psinfo: comm",
 		gcore_verbose_error_handle());
 
@@ -375,7 +364,9 @@ fill_psinfo_note(struct elf_note_info *info, ulong task)
 #ifdef GCORE_ARCH_COMPAT
 
 static void
-compat_fill_psinfo_note(struct elf_note_info *info, ulong task)
+compat_fill_psinfo_note(struct elf_note_info *info,
+			struct task_context *tc,
+			struct memelfnote *memnote)
 {
 	struct compat_elf_prpsinfo *psinfo;
 	ulong arg_start, arg_end, parent;
@@ -385,12 +376,12 @@ compat_fill_psinfo_note(struct elf_note_info *info, ulong task)
 	char *mm_cache;
 
 	psinfo = (struct compat_elf_prpsinfo *)GETBUF(sizeof(*psinfo));
-        fill_note(&info->psinfo, "CORE", NT_PRPSINFO, sizeof(*psinfo), psinfo);
+        fill_note(memnote, "CORE", NT_PRPSINFO, sizeof(*psinfo), psinfo);
 
         /* first copy the parameters from user space */
 	BZERO(psinfo, sizeof(struct elf_prpsinfo));
 
-	mm_cache = fill_mm_struct(task_mm(task, FALSE));
+	mm_cache = fill_mm_struct(task_mm(tc->task, FALSE));
 
 	arg_start = ULONG(mm_cache + GCORE_OFFSET(mm_struct_arg_start));
 	arg_end = ULONG(mm_cache + GCORE_OFFSET(mm_struct_arg_end));
@@ -409,16 +400,16 @@ compat_fill_psinfo_note(struct elf_note_info *info, ulong task)
                         psinfo->pr_psargs[i] = ' ';
         psinfo->pr_psargs[len] = 0;
 
-	readmem(task + GCORE_OFFSET(task_struct_real_parent), KVADDR,
+	readmem(tc->task + GCORE_OFFSET(task_struct_real_parent), KVADDR,
 		&parent, sizeof(parent), "fill_psinfo: real_parent",
 		gcore_verbose_error_handle());
 
 	psinfo->pr_ppid = ggt->task_pid(parent);
-	psinfo->pr_pid = ggt->task_pid(task);
-	psinfo->pr_pgrp = ggt->task_pgrp(task);
-	psinfo->pr_sid = ggt->task_session(task);
+	psinfo->pr_pid = ggt->task_pid(tc->task);
+	psinfo->pr_pgrp = ggt->task_pgrp(tc->task);
+	psinfo->pr_sid = ggt->task_session(tc->task);
 
-	readmem(task + OFFSET(task_struct_state), KVADDR, &state, sizeof(state),
+	readmem(tc->task + OFFSET(task_struct_state), KVADDR, &state, sizeof(state),
 		"fill_psinfo: state", gcore_verbose_error_handle());
 
         i = state ? ffz(~state) + 1 : 0;
@@ -426,19 +417,19 @@ compat_fill_psinfo_note(struct elf_note_info *info, ulong task)
         psinfo->pr_sname = (i > 5) ? '.' : "RSDTZW"[i];
         psinfo->pr_zomb = psinfo->pr_sname == 'Z';
 
-	psinfo->pr_nice = task_nice(task);
+	psinfo->pr_nice = task_nice(tc->task);
 
-	readmem(task + OFFSET(task_struct_flags), KVADDR, &psinfo->pr_flag,
+	readmem(tc->task + OFFSET(task_struct_flags), KVADDR, &psinfo->pr_flag,
 		sizeof(psinfo->pr_flag), "fill_psinfo: flags",
 		gcore_verbose_error_handle());
 
-	uid = ggt->task_uid(task);
-	gid = ggt->task_gid(task);
+	uid = ggt->task_uid(tc->task);
+	gid = ggt->task_gid(tc->task);
 
 	SET_UID(psinfo->pr_uid, (__compat_uid_t)uid);
 	SET_GID(psinfo->pr_gid, (__compat_gid_t)gid);
 
-	readmem(task + OFFSET(task_struct_comm), KVADDR, &psinfo->pr_fname,
+	readmem(tc->task + OFFSET(task_struct_comm), KVADDR, &psinfo->pr_fname,
 		TASK_COMM_LEN, "fill_psinfo: comm",
 		gcore_verbose_error_handle());
 
@@ -446,47 +437,80 @@ compat_fill_psinfo_note(struct elf_note_info *info, ulong task)
 
 #endif /* GCORE_ARCH_COMPAT */
 
+static void fill_elf_header(int phnum)
+{
+	const struct user_regset_view *view = task_user_regset_view();
+
+	gcore->elf->ops->fill_elf_header(gcore->elf,
+					 phnum < PN_XNUM ? phnum : PN_XNUM,
+					 view->e_machine, view->e_flags,
+					 view->ei_osabi);
+
+	if (gcore->elf->ops->get_e_shoff(gcore->elf))
+		gcore->elf->ops->fill_section_header(gcore->elf, phnum);
+}
+
 static void
-fill_thread_core_info(struct elf_thread_core_info *t,
-		      struct elf_note_info *info,
-		      const struct user_regset_view *view, size_t *total,
-		      struct thread_group_list *tglist)
+fill_write_thread_core_info(int fd, struct task_context *tc,
+			    struct task_context *dump_tc,
+			    struct elf_note_info *info,
+			    const struct user_regset_view *view,
+			    loff_t *offset, size_t *total)
 {
 	unsigned int i;
-	char *pr_reg_buf;
+	char *buf;
+	struct memelfnote memnote;
 
 	/* NT_PRSTATUS is the one special case, because the regset data
 	 * goes into the pr_reg field inside the note contents, rather
          * than being the whole note contents.  We fill the reset in here.
          * We assume that regset 0 is NT_PRSTATUS.
          */
-	pr_reg_buf = GETBUF(view->regsets[0].size);
-	view->regsets[0].get(task_to_context(t->task), &view->regsets[0],
-			     view->regsets[0].size, pr_reg_buf);
-	info->fill_prstatus_note(info, t, tglist, pr_reg_buf);
-        *total += notesize(&t->notes[0]);
+	buf = GETBUF(view->regsets[0].size);
+	view->regsets[0].get(tc, &view->regsets[0],
+			     view->regsets[0].size, buf);
+	/* We pass actual object in case of prstatus. We don't do this
+	 * in other cases. */
+	memnote.data = buf;
+	info->fill_prstatus_note(info, tc, &memnote);
+        *total += notesize(&memnote);
+	writenote(&memnote, fd, offset);
+	FREEBUF(buf);
+
+        /*
+	 * Fill in the two process-wide notes.
+         */
+	if (tc == dump_tc) {
+		info->fill_psinfo_note(info, dump_tc, &memnote);
+		info->size += notesize(&memnote);
+		writenote(&memnote, fd, offset);
+		FREEBUF(memnote.data);
+
+		info->fill_auxv_note(info, dump_tc, &memnote);
+		info->size += notesize(&memnote);
+		writenote(&memnote, fd, offset);
+		FREEBUF(memnote.data);
+	}
 
 	for (i = 1; i < view->n; ++i) {
 		const struct user_regset *regset = &view->regsets[i];
-		void *data;
 
 		if (!regset->core_note_type)
 			continue;
 		if (regset->active &&
-		    !regset->active(task_to_context(t->task), regset))
+		    !regset->active(tc, regset))
 			continue;
-		data = (void *)GETBUF(regset->size);
-		if (regset->get(task_to_context(t->task), regset, regset->size,
-				data))
-			continue;
-		if (regset->callback)
-			regset->callback(t, regset);
+		buf = GETBUF(regset->size);
+		if (regset->get(tc, regset, regset->size, buf))
+			goto fail;
 
-		fill_note(&t->notes[i], regset->name, regset->core_note_type,
-			  regset->size, data);
-		*total += notesize(&t->notes[i]);
+		fill_note(&memnote, regset->name, regset->core_note_type,
+			  regset->size, buf);
+		*total += notesize(&memnote);
+		writenote(&memnote, fd, offset);
+	fail:
+		FREEBUF(buf);
 	}
-
 }
 
 static struct elf_note_info *elf_note_info_init(void)
@@ -512,17 +536,15 @@ static struct elf_note_info *elf_note_info_init(void)
 }
 
 static int
-fill_note_info(struct elf_note_info *info, struct thread_group_list *tglist,
-	       int phnum)
+fill_write_note_info(int fd, struct elf_note_info *info, int phnum,
+		     loff_t *offset)
 {
 	const struct user_regset_view *view = task_user_regset_view();
-	struct thread_group_list *l;
-	struct elf_thread_core_info *t;
-	ulong dump_task;
-	unsigned int i;
+	struct task_context *tc;
+	struct task_context *dump_tc = CURRENT_CONTEXT();
+	ulong i;
 
 	info->size = 0;
-	info->thread = NULL;
 
 	info->thread_notes = 0;
 	for (i = 0; i < view->n; i++)
@@ -536,47 +558,19 @@ fill_note_info(struct elf_note_info *info, struct thread_group_list *tglist,
 	    view->regsets[0].core_note_type != NT_PRSTATUS)
 		error(FATAL, "regset 0 is _not_ NT_PRSTATUS\n");
 
-	gcore->elf->ops->fill_elf_header(gcore->elf,
-					 phnum < PN_XNUM ? phnum : PN_XNUM,
-					 view->e_machine, view->e_flags,
-					 view->ei_osabi);
-
-	if (gcore->elf->ops->get_e_shoff(gcore->elf))
-		gcore->elf->ops->fill_section_header(gcore->elf, phnum);
-
-	/* head task is always a dump target */
-	dump_task = tglist->task;
-
-	for (l = tglist; l; l = l->next) {
-		struct elf_thread_core_info *new;
-		size_t entry_size;
-
-		entry_size = offsetof(struct elf_thread_core_info,
-				      notes[info->thread_notes]);
-		new = (struct elf_thread_core_info *)GETBUF(entry_size);
-		BZERO(new, entry_size);
-		new->task = l->task;
-		if (!info->thread || l->task == dump_task) {
-			new->next = info->thread;
-			info->thread = new;
-		} else {
-			/* keep dump_task in the head position */
-			new->next = info->thread->next;
-			info->thread->next = new;
+	/*
+	 * Put dump task note information first. This is a common
+	 * convension we can see in core dump generated by linux
+	 * process core dumper and gdb gcore.
+	 */
+	fill_write_thread_core_info(fd, dump_tc, dump_tc, info, view,
+				    offset, &info->size);
+	FOR_EACH_TASK_IN_THREAD_GROUP(task_tgid(dump_tc->task), tc) {
+		if (tc != dump_tc) {
+			fill_write_thread_core_info(fd, tc, dump_tc, info,
+						    view, offset, &info->size);
 		}
 	}
-
-	for (t = info->thread; t; t = t->next)
-		fill_thread_core_info(t, info, view, &info->size, tglist);
-
-        /*
-	 * Fill in the two process-wide notes.
-         */
-        info->fill_psinfo_note(info, dump_task);
-        info->size += notesize(&info->psinfo);
-
-	info->fill_auxv_note(info, dump_task);
-	info->size += notesize(&info->auxv);
 
 	return 0;
 }
@@ -648,32 +642,6 @@ writenote(struct memelfnote *men, int fd, loff_t *foffset)
 
 }
 
-static void
-write_note_info(int fd, struct elf_note_info *info, loff_t *foffset)
-{
-        int first = 1;
-        struct elf_thread_core_info *t = info->thread;
-
-        do {
-                int i;
-
-                writenote(&t->notes[0], fd, foffset);
-
-                if (first) {
-			writenote(&info->psinfo, fd, foffset);
-			writenote(&info->auxv, fd, foffset);
-		}
-
-                for (i = 1; i < info->thread_notes; ++i)
-                        if (t->notes[i].data)
-				writenote(&t->notes[i], fd, foffset);
-
-                first = 0;
-                t = t->next;
-        } while (t);
-
-}
-
 static size_t
 get_note_info_size(struct elf_note_info *info)
 {
@@ -697,179 +665,197 @@ ulong next_vma(ulong this_vma, ulong gate_vma)
 	return gate_vma;
 }
 
-static void
-fill_prstatus_note(struct elf_note_info *info, struct elf_thread_core_info *t,
-		   const struct thread_group_list *tglist, void *pr_reg)
+struct task_context *next_task_context(ulong tgid, struct task_context *tc)
 {
+	const struct task_context * const end = FIRST_CONTEXT() + RUNNING_TASKS();
+
+	for (++tc; tc < end; ++tc)
+		if (task_tgid(tc->task) == tgid)
+			return tc;
+
+	return NULL;
+}
+
+static void
+fill_prstatus_note(struct elf_note_info *info, struct task_context *tc,
+		   struct memelfnote *memnote)
+{
+	struct elf_prstatus dummy, *prstatus = (struct elf_prstatus *)memnote->data;
+	struct user_regs_struct *regs = (struct user_regs_struct *)memnote->data;
 	ulong pending_signal_sig0, blocked_sig0, real_parent, group_leader,
 		signal, cutime,	cstime;
 
-	memcpy(&t->prstatus.native.pr_reg, pr_reg, sizeof(t->prstatus.native.pr_reg));
+	/* FIXME: horible workaround during proto-type development... */
+	memset(&dummy, 0, sizeof(dummy));
+	memcpy(&dummy.pr_reg, regs, sizeof(*regs));
+	prstatus = memnote->data;
+	memcpy(prstatus, &dummy, sizeof(dummy));
 
-        fill_note(&t->notes[0], "CORE", NT_PRSTATUS, sizeof(t->prstatus.native),
-		  &t->prstatus.native);
+        fill_note(memnote, "CORE", NT_PRSTATUS, sizeof(*prstatus), prstatus);
 
         /* The type of (sig[0]) is unsigned long. */
-	readmem(t->task + OFFSET(task_struct_pending) + OFFSET(sigpending_signal),
+	readmem(tc->task + OFFSET(task_struct_pending) + OFFSET(sigpending_signal),
 		KVADDR, &pending_signal_sig0, sizeof(unsigned long),
 		"fill_prstatus: sigpending_signal_sig",
 		gcore_verbose_error_handle());
 
-	readmem(t->task + OFFSET(task_struct_blocked), KVADDR, &blocked_sig0,
+	readmem(tc->task + OFFSET(task_struct_blocked), KVADDR, &blocked_sig0,
 		sizeof(unsigned long), "fill_prstatus: blocked_sig0",
 		gcore_verbose_error_handle());
 
-	readmem(t->task + OFFSET(task_struct_parent), KVADDR, &real_parent,
+	readmem(tc->task + OFFSET(task_struct_parent), KVADDR, &real_parent,
 		sizeof(real_parent), "fill_prstatus: real_parent",
 		gcore_verbose_error_handle());
 
-	readmem(t->task + GCORE_OFFSET(task_struct_group_leader), KVADDR,
+	readmem(tc->task + GCORE_OFFSET(task_struct_group_leader), KVADDR,
 		&group_leader, sizeof(group_leader),
 		"fill_prstatus: group_leader", gcore_verbose_error_handle());
 
-	t->prstatus.native.pr_info.si_signo = t->prstatus.native.pr_cursig = 0;
-        t->prstatus.native.pr_sigpend = pending_signal_sig0;
-        t->prstatus.native.pr_sighold = blocked_sig0;
-        t->prstatus.native.pr_ppid = ggt->task_pid(real_parent);
-        t->prstatus.native.pr_pid = ggt->task_pid(t->task);
-        t->prstatus.native.pr_pgrp = ggt->task_pgrp(t->task);
-        t->prstatus.native.pr_sid = ggt->task_session(t->task);
-        if (thread_group_leader(t->task)) {
+	prstatus->pr_info.si_signo = prstatus->pr_cursig = 0;
+        prstatus->pr_sigpend = pending_signal_sig0;
+        prstatus->pr_sighold = blocked_sig0;
+        prstatus->pr_ppid = ggt->task_pid(real_parent);
+        prstatus->pr_pid = ggt->task_pid(tc->task);
+        prstatus->pr_pgrp = ggt->task_pgrp(tc->task);
+        prstatus->pr_sid = ggt->task_session(tc->task);
+
+        if (thread_group_leader(tc->task)) {
                 struct task_cputime cputime;
 
                 /*
                  * This is the record for the group leader.  It shows the
                  * group-wide total, not its individual thread total.
                  */
-                ggt->thread_group_cputime(t->task, &cputime);
-                cputime_to_timeval(cputime.utime, &t->prstatus.native.pr_utime);
-                cputime_to_timeval(cputime.stime, &t->prstatus.native.pr_stime);
+                ggt->thread_group_cputime(tc->task, &cputime);
+                cputime_to_timeval(cputime.utime, &prstatus->pr_utime);
+                cputime_to_timeval(cputime.stime, &prstatus->pr_stime);
         } else {
 		cputime_t utime, stime;
 
-		readmem(t->task + OFFSET(task_struct_utime), KVADDR, &utime,
+		readmem(tc->task + OFFSET(task_struct_utime), KVADDR, &utime,
 			sizeof(utime), "task_struct utime",
 			gcore_verbose_error_handle());
 
-		readmem(t->task + OFFSET(task_struct_stime), KVADDR, &stime,
+		readmem(tc->task + OFFSET(task_struct_stime), KVADDR, &stime,
 			sizeof(stime), "task_struct stime",
 			gcore_verbose_error_handle());
 
-                cputime_to_timeval(utime, &t->prstatus.native.pr_utime);
-                cputime_to_timeval(stime, &t->prstatus.native.pr_stime);
+                cputime_to_timeval(utime, &prstatus->pr_utime);
+                cputime_to_timeval(stime, &prstatus->pr_stime);
         }
 
-	readmem(t->task + OFFSET(task_struct_signal), KVADDR, &signal,
+	readmem(tc->task + OFFSET(task_struct_signal), KVADDR, &signal,
 		sizeof(signal), "task_struct signal", gcore_verbose_error_handle());
 
-	readmem(t->task + GCORE_OFFSET(signal_struct_cutime), KVADDR,
+	readmem(tc->task + GCORE_OFFSET(signal_struct_cutime), KVADDR,
 		&cutime, sizeof(cutime), "signal_struct cutime",
 		gcore_verbose_error_handle());
 
-	readmem(t->task + GCORE_OFFSET(signal_struct_cutime), KVADDR,
+	readmem(tc->task + GCORE_OFFSET(signal_struct_cutime), KVADDR,
 		&cstime, sizeof(cstime), "signal_struct cstime",
 		gcore_verbose_error_handle());
 
-        cputime_to_timeval(cutime, &t->prstatus.native.pr_cutime);
-        cputime_to_timeval(cstime, &t->prstatus.native.pr_cstime);
+        cputime_to_timeval(cutime, &prstatus->pr_cutime);
+        cputime_to_timeval(cstime, &prstatus->pr_cstime);
 
+	prstatus->pr_fpvalid = gcore_arch_get_fp_valid(tc);
 }
 
 #ifdef GCORE_ARCH_COMPAT
 
 static void
 compat_fill_prstatus_note(struct elf_note_info *info,
-			  struct elf_thread_core_info *t,
-			  const struct thread_group_list *tglist,
-			  void *pr_reg)
+			  struct task_context *tc,
+			  struct memelfnote *memnote)
 {
+	struct compat_elf_prstatus *prstatus =
+		(struct compat_elf_prstatus *)memnote->data;
 	ulong pending_signal_sig0, blocked_sig0, real_parent, group_leader,
 		signal, cutime,	cstime;
 
-	memcpy(&t->prstatus.compat.pr_reg, pr_reg, sizeof(t->prstatus.compat.pr_reg));
-
-        fill_note(&t->notes[0], "CORE", NT_PRSTATUS,
-                  sizeof(t->prstatus.compat), &t->prstatus.compat);
+        fill_note(memnote, "CORE", NT_PRSTATUS, sizeof(*prstatus), prstatus);
 
         /* The type of (sig[0]) is unsigned long. */
-	readmem(t->task + OFFSET(task_struct_pending) + OFFSET(sigpending_signal),
+	readmem(tc->task + OFFSET(task_struct_pending) + OFFSET(sigpending_signal),
 		KVADDR, &pending_signal_sig0, sizeof(unsigned long),
 		"fill_prstatus: sigpending_signal_sig",
 		gcore_verbose_error_handle());
 
-	readmem(t->task + OFFSET(task_struct_blocked), KVADDR, &blocked_sig0,
+	readmem(tc->task + OFFSET(task_struct_blocked), KVADDR, &blocked_sig0,
 		sizeof(unsigned long), "fill_prstatus: blocked_sig0",
 		gcore_verbose_error_handle());
 
-	readmem(t->task + OFFSET(task_struct_parent), KVADDR, &real_parent,
+	readmem(tc->task + OFFSET(task_struct_parent), KVADDR, &real_parent,
 		sizeof(real_parent), "fill_prstatus: real_parent",
 		gcore_verbose_error_handle());
 
-	readmem(t->task + GCORE_OFFSET(task_struct_group_leader), KVADDR,
+	readmem(tc->task + GCORE_OFFSET(task_struct_group_leader), KVADDR,
 		&group_leader, sizeof(group_leader),
 		"fill_prstatus: group_leader", gcore_verbose_error_handle());
 
-	t->prstatus.compat.pr_info.si_signo = t->prstatus.compat.pr_cursig = 0;
-        t->prstatus.compat.pr_sigpend = pending_signal_sig0;
-        t->prstatus.compat.pr_sighold = blocked_sig0;
-        t->prstatus.compat.pr_ppid = ggt->task_pid(real_parent);
-        t->prstatus.compat.pr_pid = ggt->task_pid(t->task);
-        t->prstatus.compat.pr_pgrp = ggt->task_pgrp(t->task);
-        t->prstatus.compat.pr_sid = ggt->task_session(t->task);
-        if (thread_group_leader(t->task)) {
+	prstatus->pr_info.si_signo = prstatus->pr_cursig = 0;
+        prstatus->pr_sigpend = pending_signal_sig0;
+        prstatus->pr_sighold = blocked_sig0;
+        prstatus->pr_ppid = ggt->task_pid(real_parent);
+        prstatus->pr_pid = ggt->task_pid(tc->task);
+        prstatus->pr_pgrp = ggt->task_pgrp(tc->task);
+        prstatus->pr_sid = ggt->task_session(tc->task);
+
+        if (thread_group_leader(tc->task)) {
                 struct task_cputime cputime;
 
                 /*
                  * This is the record for the group leader.  It shows the
                  * group-wide total, not its individual thread total.
                  */
-                ggt->thread_group_cputime(t->task, &cputime);
-                cputime_to_compat_timeval(cputime.utime, &t->prstatus.compat.pr_utime);
-                cputime_to_compat_timeval(cputime.stime, &t->prstatus.compat.pr_stime);
+                ggt->thread_group_cputime(tc->task, &cputime);
+                cputime_to_compat_timeval(cputime.utime, &prstatus->pr_utime);
+                cputime_to_compat_timeval(cputime.stime, &prstatus->pr_stime);
         } else {
 		cputime_t utime, stime;
 
-		readmem(t->task + OFFSET(task_struct_utime), KVADDR, &utime,
+		readmem(tc->task + OFFSET(task_struct_utime), KVADDR, &utime,
 			sizeof(utime), "task_struct utime",
 			gcore_verbose_error_handle());
 
-		readmem(t->task + OFFSET(task_struct_stime), KVADDR, &stime,
+		readmem(tc->task + OFFSET(task_struct_stime), KVADDR, &stime,
 			sizeof(stime), "task_struct stime",
 			gcore_verbose_error_handle());
 
-                cputime_to_compat_timeval(utime, &t->prstatus.compat.pr_utime);
-                cputime_to_compat_timeval(stime, &t->prstatus.compat.pr_stime);
+                cputime_to_compat_timeval(utime, &prstatus->pr_utime);
+                cputime_to_compat_timeval(stime, &prstatus->pr_stime);
         }
 
-	readmem(t->task + OFFSET(task_struct_signal), KVADDR, &signal,
+	readmem(tc->task + OFFSET(task_struct_signal), KVADDR, &signal,
 		sizeof(signal), "task_struct signal",
 		gcore_verbose_error_handle());
 
-	readmem(t->task + GCORE_OFFSET(signal_struct_cutime), KVADDR,
+	readmem(tc->task + GCORE_OFFSET(signal_struct_cutime), KVADDR,
 		&cutime, sizeof(cutime), "signal_struct cutime",
 		gcore_verbose_error_handle());
 
-	readmem(t->task + GCORE_OFFSET(signal_struct_cutime), KVADDR,
+	readmem(tc->task + GCORE_OFFSET(signal_struct_cutime), KVADDR,
 		&cstime, sizeof(cstime), "signal_struct cstime",
 		gcore_verbose_error_handle());
 
-        cputime_to_compat_timeval(cutime, &t->prstatus.compat.pr_cutime);
-        cputime_to_compat_timeval(cstime, &t->prstatus.compat.pr_cstime);
+        cputime_to_compat_timeval(cutime, &prstatus->pr_cutime);
+        cputime_to_compat_timeval(cstime, &prstatus->pr_cstime);
 
+	prstatus->pr_fpvalid = gcore_arch_get_fp_valid(tc);
 }
 
 #endif /* GCORE_ARCH_COMPAT */
 
 static void
-fill_auxv_note(struct elf_note_info *info, ulong task)
+fill_auxv_note(struct elf_note_info *info, struct task_context *tc,
+	       struct memelfnote *memnote)
 {
-	struct memelfnote *note = &info->auxv;
 	ulong *auxv;
 	int i;
 
 	auxv = (ulong *)GETBUF(GCORE_SIZE(mm_struct_saved_auxv));
 
-	readmem(task_mm(task, FALSE) +
+	readmem(task_mm(tc->task, FALSE) +
 		GCORE_OFFSET(mm_struct_saved_auxv), KVADDR, auxv,
 		GCORE_SIZE(mm_struct_saved_auxv), "fill_auxv_note",
 		gcore_verbose_error_handle());
@@ -879,22 +865,23 @@ fill_auxv_note(struct elf_note_info *info, ulong task)
 		i += 2;
 	while (auxv[i - 2] != AT_NULL);
 
-	fill_note(note, "CORE", NT_AUXV, i * sizeof(ulong), auxv);
+	fill_note(memnote, "CORE", NT_AUXV, i * sizeof(ulong), auxv);
 
 }
 
 #ifdef GCORE_ARCH_COMPAT
 
 static void
-compat_fill_auxv_note(struct elf_note_info *info, ulong task)
+compat_fill_auxv_note(struct elf_note_info *info,
+		      struct task_context *tc,
+		      struct memelfnote *memnote)
 {
-	struct memelfnote *note = &info->auxv;
 	uint32_t *auxv;
 	int i;
 
 	auxv = (uint32_t *)GETBUF(GCORE_SIZE(mm_struct_saved_auxv));
 
-	readmem(task_mm(task, FALSE) +
+	readmem(task_mm(tc->task, FALSE) +
 		GCORE_OFFSET(mm_struct_saved_auxv), KVADDR, auxv,
 		GCORE_SIZE(mm_struct_saved_auxv), "fill_auxv_note32",
 		gcore_verbose_error_handle());
@@ -904,7 +891,7 @@ compat_fill_auxv_note(struct elf_note_info *info, ulong task)
 		i += 2;
 	while (auxv[i - 2] != AT_NULL);
 
-	fill_note(note, "CORE", NT_AUXV, i * sizeof(uint32_t), auxv);
+	fill_note(memnote, "CORE", NT_AUXV, i * sizeof(uint32_t), auxv);
 }
 
 #endif /* GCORE_ARCH_COMPAT */

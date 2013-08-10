@@ -89,6 +89,8 @@
 #define Elf_Nhdr Elf32_Nhdr
 #endif
 
+#define PAGE_ALIGN(X) roundup(X, ELF_EXEC_PAGESIZE)
+
 /*
  * gcore_regset.c
  *
@@ -225,6 +227,8 @@ extern void gcore_default_regsets_init(void);
 #define REGSET_VIEW_NAME "arm"
 #define REGSET_VIEW_MACHINE EM_ARM
 #endif
+
+extern int gcore_arch_get_fp_valid(struct task_context *tc);
 
 /*
  * gcore_dumpfilter.c
@@ -758,28 +762,16 @@ struct memelfnote
 	void *data;
 };
 
-struct elf_thread_core_info {
-	struct elf_thread_core_info *next;
-	ulong task;
-	union prstatus {
-		struct elf_prstatus native;
-#ifdef GCORE_ARCH_COMPAT
-		struct compat_elf_prstatus compat;
-#endif
-	} prstatus;
-	struct memelfnote notes[0];
-};
-
 struct elf_note_info {
 	void (*fill_prstatus_note)(struct elf_note_info *info,
-				   struct elf_thread_core_info *t,
-				   const struct thread_group_list *tglist,
-				   void *pr_reg);
-	void (*fill_psinfo_note)(struct elf_note_info *info, ulong task);
-	void (*fill_auxv_note)(struct elf_note_info *info, ulong task);
-	struct elf_thread_core_info *thread;
-	struct memelfnote psinfo;
-	struct memelfnote auxv;
+				   struct task_context *tc,
+				   struct memelfnote *memnote);
+	void (*fill_psinfo_note)(struct elf_note_info *info,
+				 struct task_context *tc,
+				 struct memelfnote *memnote);
+	void (*fill_auxv_note)(struct elf_note_info *info,
+			       struct task_context *tc,
+			       struct memelfnote *memnote);
 	size_t size;
 	int thread_notes;
 };
@@ -804,6 +796,18 @@ extern ulong next_vma(ulong this_vma, ulong gate_vma);
 #define FOR_EACH_VMA_OBJECT(vma, index, mmap, gate_vma)			\
 	for (index = 0, vma = first_vma(mmap, gate_vma); vma;		\
 	     ++index, vma = next_vma(vma, gate_vma))
+
+extern struct task_context *
+next_task_context(ulong tgid, struct task_context *tc);
+
+static inline struct task_context *first_task_context(ulong tgid)
+{
+	return next_task_context(tgid, FIRST_CONTEXT());
+}
+
+#define FOR_EACH_TASK_IN_THREAD_GROUP(tgid, tc)				\
+	for (tc = first_task_context(tgid); tc;				\
+	     tc = next_task_context(tgid, tc))
 
 extern int _init(void);
 extern int _fini(void);
@@ -995,6 +999,7 @@ struct gcore_elf_operations
 	int (*write_note_header)(struct gcore_elf_struct *this, int fd,
 				 off_t *offset);
 
+	uint64_t (*get_e_phoff)(struct gcore_elf_struct *this);
 	uint64_t (*get_e_shoff)(struct gcore_elf_struct *this);
 
 	/**
