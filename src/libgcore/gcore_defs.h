@@ -1065,8 +1065,6 @@ extern void gcore_default_regsets_init(void);
 #define gcore_arch_regsets_init gcore_default_regsets_init
 #endif
 
-#ifdef X86_64
 #define VDSO_HIGH_BASE 0xffffe000U
-#endif
 
 #endif /* GCORE_DEFS_H_ */
