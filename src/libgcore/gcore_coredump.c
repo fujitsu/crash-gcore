@@ -41,19 +41,19 @@ static void compat_fill_auxv_note(struct elf_note_info *info,
 #endif
 
 static void fill_elf_header(int phnum);
-static void fill_write_thread_core_info(int fd, struct task_context *tc,
+static void fill_write_thread_core_info(FILE *fp, struct task_context *tc,
 					struct task_context *dump_tc,
 					struct elf_note_info *info,
 					const struct user_regset_view *view,
 					loff_t *offset, size_t *total);
-static int fill_write_note_info(int fd, struct elf_note_info *info, int phnum,
+static int fill_write_note_info(FILE *fp, struct elf_note_info *info, int phnum,
 				loff_t *offset);
 static void fill_note(struct memelfnote *note, const char *name, int type,
 		      unsigned int sz, void *data);
 
 static int notesize(struct memelfnote *en);
-static void alignfile(int fd, loff_t *foffset);
-static void writenote(struct memelfnote *men, int fd, loff_t *foffset);
+static void alignfile(FILE *fp, loff_t *foffset);
+static void writenote(struct memelfnote *men, FILE *fp, loff_t *foffset);
 static size_t get_note_info_size(struct elf_note_info *info);
 
 static inline int thread_group_leader(ulong task);
@@ -89,54 +89,53 @@ void gcore_coredump(void)
 	fill_elf_header(phnum);
 
 	progressf("Opening file %s ... \n", gcore->corename);
-	gcore->fd = open(gcore->corename, O_WRONLY|O_TRUNC|O_CREAT,
-			 S_IRUSR|S_IWUSR);
-	if (gcore->fd < 0)
+	gcore->fp = fopen(gcore->corename, "w");
+	if (gcore->fp < 0)
 		error(FATAL, "%s: open: %s\n", gcore->corename,
 		      strerror(errno));
 	progressf("done.\n");
 
 	progressf("Writing ELF header ... \n");
-	if (!gcore->elf->ops->write_elf_header(gcore->elf, gcore->fd))
+	if (!gcore->elf->ops->write_elf_header(gcore->elf, gcore->fp))
 		error(FATAL, "%s: write: %s\n", gcore->corename,
 		      strerror(errno));
 	progressf(" done.\n");
 
 	offset = gcore->elf->ops->calc_segment_offset(gcore->elf);
 
-	if (lseek(gcore->fd, offset, SEEK_SET) < 0) {
-		error(FATAL, "%s: lseek: %s\n", gcore->corename,
+	if (fseek(gcore->fp, offset, SEEK_SET) < 0) {
+		error(FATAL, "%s: fseek: %s\n", gcore->corename,
 		      strerror(errno));
 	}
 
 	progressf("Retrieving and writing note information ... \n");
-	fill_write_note_info(gcore->fd, info, phnum, &offset);
+	fill_write_note_info(gcore->fp, info, phnum, &offset);
 	progressf("done.\n");
 
 	if (gcore->elf->ops->get_e_shoff(gcore->elf)) {
-		if (lseek(gcore->fd, gcore->elf->ops->get_e_shoff(gcore->elf),
+		if (fseek(gcore->fp, gcore->elf->ops->get_e_shoff(gcore->elf),
 			  SEEK_SET) < 0) {
-			error(FATAL, "%s: lseek: %s\n", gcore->corename,
+			error(FATAL, "%s: fseek: %s\n", gcore->corename,
 			      strerror(errno));
 		}
 		progressf("Writing section header table ... \n");
 		if (!gcore->elf->ops->write_section_header(gcore->elf,
-							   gcore->fd))
+							   gcore->fp))
 			error(FATAL, "%s: gcore: %s\n", gcore->corename,
 			      strerror(errno));
 		progressf("done.\n");
 	}
 
 	progressf("Writing PT_NOTE program header ... \n");
-	if (lseek(gcore->fd, gcore->elf->ops->get_e_phoff(gcore->elf),
+	if (fseek(gcore->fp, gcore->elf->ops->get_e_phoff(gcore->elf),
 		  SEEK_SET) < 0) {
-		error(FATAL, "%s: lseek: %s\n", gcore->corename,
+		error(FATAL, "%s: fseek: %s\n", gcore->corename,
 		      strerror(errno));
 	}
 	offset = gcore->elf->ops->calc_segment_offset(gcore->elf);
 	gcore->elf->ops->fill_program_header(gcore->elf, PT_NOTE, 0, offset, 0,
 					     get_note_info_size(info), 0, 0);
-	if (!gcore->elf->ops->write_program_header(gcore->elf, gcore->fd))
+	if (!gcore->elf->ops->write_program_header(gcore->elf, gcore->fp))
 		error(FATAL, "%s: write: %s\n", gcore->corename,
 		      strerror(errno));
 	progressf("done.\n");
@@ -178,7 +177,7 @@ void gcore_coredump(void)
 						     ELF_EXEC_PAGESIZE);
 
 		if (!gcore->elf->ops->write_program_header(gcore->elf,
-							   gcore->fd))
+							   gcore->fp))
 			error(FATAL, "%s: write, %s\n", gcore->corename,
 			      strerror(errno));
 	}
@@ -193,8 +192,8 @@ void gcore_coredump(void)
 		+ get_note_info_size(info);
 	offset = roundup(offset, ELF_EXEC_PAGESIZE);
 
-	if (lseek(gcore->fd, offset, SEEK_SET) < 0) {
-		error(FATAL, "%s: lseek: %s\n", gcore->corename,
+	if (fseek(gcore->fp, offset, SEEK_SET) < 0) {
+		error(FATAL, "%s: fseek: %s\n", gcore->corename,
 		      strerror(errno));
 	}
 
@@ -219,8 +218,8 @@ void gcore_coredump(void)
 				readmem(paddr, PHYSADDR, buffer, PAGE_SIZE,
 					"readmem vma list",
 					gcore_verbose_error_handle());
-				if (write(gcore->fd, buffer, PAGE_SIZE)
-				    != PAGE_SIZE)
+				if (fwrite(buffer, PAGE_SIZE, 1, gcore->fp)
+				    != 1)
 					error(FATAL, "%s: write: %s\n",
 					      gcore->corename,
 					      strerror(errno));
@@ -233,7 +232,7 @@ void gcore_coredump(void)
 				 * restructuring program header table.
 				 *
 				 * Also, we do skip these pages by
-				 * lseek(). Recent filesystems support
+				 * fseek(). Recent filesystems support
 				 * sparse file that doesn't allocate
 				 * actual blocks if there are no
 				 * corresponding write; such part is
@@ -250,8 +249,8 @@ void gcore_coredump(void)
 				 * corefile can be much larger than
 				 * original size.
 				 */
-				if (lseek(gcore->fd, PAGE_SIZE, SEEK_CUR) < 0) {
-					error(FATAL, "%s: lseek: %s\n",
+				if (fseek(gcore->fp, PAGE_SIZE, SEEK_CUR) < 0) {
+					error(FATAL, "%s: fseek: %s\n",
 					      gcore->corename,
 					      strerror(errno));
 				}
@@ -451,7 +450,7 @@ static void fill_elf_header(int phnum)
 }
 
 static void
-fill_write_thread_core_info(int fd, struct task_context *tc,
+fill_write_thread_core_info(FILE *fp, struct task_context *tc,
 			    struct task_context *dump_tc,
 			    struct elf_note_info *info,
 			    const struct user_regset_view *view,
@@ -474,7 +473,7 @@ fill_write_thread_core_info(int fd, struct task_context *tc,
 	memnote.data = buf;
 	info->fill_prstatus_note(info, tc, &memnote);
         *total += notesize(&memnote);
-	writenote(&memnote, fd, offset);
+	writenote(&memnote, fp, offset);
 	FREEBUF(buf);
 
         /*
@@ -483,12 +482,12 @@ fill_write_thread_core_info(int fd, struct task_context *tc,
 	if (tc == dump_tc) {
 		info->fill_psinfo_note(info, dump_tc, &memnote);
 		info->size += notesize(&memnote);
-		writenote(&memnote, fd, offset);
+		writenote(&memnote, fp, offset);
 		FREEBUF(memnote.data);
 
 		info->fill_auxv_note(info, dump_tc, &memnote);
 		info->size += notesize(&memnote);
-		writenote(&memnote, fd, offset);
+		writenote(&memnote, fp, offset);
 		FREEBUF(memnote.data);
 	}
 
@@ -507,7 +506,7 @@ fill_write_thread_core_info(int fd, struct task_context *tc,
 		fill_note(&memnote, regset->name, regset->core_note_type,
 			  regset->size, buf);
 		*total += notesize(&memnote);
-		writenote(&memnote, fd, offset);
+		writenote(&memnote, fp, offset);
 	fail:
 		FREEBUF(buf);
 	}
@@ -536,7 +535,7 @@ static struct elf_note_info *elf_note_info_init(void)
 }
 
 static int
-fill_write_note_info(int fd, struct elf_note_info *info, int phnum,
+fill_write_note_info(FILE *fp, struct elf_note_info *info, int phnum,
 		     loff_t *offset)
 {
 	const struct user_regset_view *view = task_user_regset_view();
@@ -563,11 +562,11 @@ fill_write_note_info(int fd, struct elf_note_info *info, int phnum,
 	 * convension we can see in core dump generated by linux
 	 * process core dumper and gdb gcore.
 	 */
-	fill_write_thread_core_info(fd, dump_tc, dump_tc, info, view,
+	fill_write_thread_core_info(fp, dump_tc, dump_tc, info, view,
 				    offset, &info->size);
 	FOR_EACH_TASK_IN_THREAD_GROUP(task_tgid(dump_tc->task), tc) {
 		if (tc != dump_tc) {
-			fill_write_thread_core_info(fd, tc, dump_tc, info,
+			fill_write_thread_core_info(fp, tc, dump_tc, info,
 						    view, offset, &info->size);
 		}
 	}
@@ -599,19 +598,21 @@ fill_note(struct memelfnote *note, const char *name, int type, unsigned int sz,
 }
 
 static void
-alignfile(int fd, loff_t *foffset)
+alignfile(FILE *fp, loff_t *foffset)
 {
         static const char buffer[4] = {};
 	const size_t len = roundup(*foffset, 4) - *foffset;
 
-	if ((size_t)write(fd, buffer, len) != len)
-		error(FATAL, "%s: write %s\n", gcore->corename,
-		      strerror(errno));
-	*foffset += (loff_t)len;
+	if (len > 0) {
+		if (fwrite(buffer, len, 1, fp) != 1)
+			error(FATAL, "%s: write %s\n", gcore->corename,
+			      strerror(errno));
+		*foffset += (loff_t)len;
+	}
 }
 
 static void
-writenote(struct memelfnote *men, int fd, loff_t *foffset)
+writenote(struct memelfnote *men, FILE *fp, loff_t *foffset)
 {
 	uint32_t n_namesz, n_descsz, n_type;
 
@@ -622,23 +623,23 @@ writenote(struct memelfnote *men, int fd, loff_t *foffset)
 	gcore->elf->ops->fill_note_header(gcore->elf, n_namesz, n_descsz,
 					  n_type);
 
-	if (!gcore->elf->ops->write_note_header(gcore->elf, fd, foffset))
+	if (!gcore->elf->ops->write_note_header(gcore->elf, fp, foffset))
 		error(FATAL, "%s: write %s\n", gcore->corename,
 		      strerror(errno));
 
-	if (write(fd, men->name, n_namesz) != n_namesz)
+	if (fwrite(men->name, n_namesz, 1, fp) != 1)
 		error(FATAL, "%s: write %s\n", gcore->corename,
 		      strerror(errno));
 	*foffset += n_namesz;
 
-        alignfile(fd, foffset);
+        alignfile(fp, foffset);
 
-	if (write(fd, men->data, men->datasz) != men->datasz)
+	if (fwrite(men->data, men->datasz, 1, fp) != 1)
 		error(FATAL, "%s: write %s\n", gcore->corename,
 		      strerror(errno));
 	*foffset += men->datasz;
 
-        alignfile(fd, foffset);
+        alignfile(fp, foffset);
 
 }
 

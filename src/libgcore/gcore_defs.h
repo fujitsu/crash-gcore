@@ -15,6 +15,7 @@
 #ifndef GCORE_DEFS_H_
 #define GCORE_DEFS_H_
 
+#include <stdio.h>
 #include <elf.h>
 
 #ifdef X86_64
@@ -993,10 +994,10 @@ struct gcore_elf_operations
 	 *
 	 * - No exception is raised.
 	 */
-	int (*write_elf_header)(struct gcore_elf_struct *this, int fd);
-	int (*write_section_header)(struct gcore_elf_struct *this, int fd);
-	int (*write_program_header)(struct gcore_elf_struct *this, int fd);
-	int (*write_note_header)(struct gcore_elf_struct *this, int fd,
+	int (*write_elf_header)(struct gcore_elf_struct *this, FILE *fp);
+	int (*write_section_header)(struct gcore_elf_struct *this, FILE *fp);
+	int (*write_program_header)(struct gcore_elf_struct *this, FILE *fp);
+	int (*write_note_header)(struct gcore_elf_struct *this, FILE *fp,
 				 off_t *offset);
 
 	uint64_t (*get_e_phoff)(struct gcore_elf_struct *this);
@@ -1035,7 +1036,7 @@ extern void gcore_elf_init(struct gcore_one_session_data *gcore);
 struct gcore_one_session_data
 {
 	ulong flags;
-	int fd;
+	FILE *fp;
 	ulong orig_task;
 	char corename[CORENAME_MAX_SIZE + 1];
 	struct gcore_elf_struct *elf;
