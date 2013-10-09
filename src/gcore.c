@@ -319,8 +319,18 @@ static void do_gcore(char *arg)
 
 	pc->flags &= ~IN_FOREACH;
 
-	if (gcore->fd > 0)
-		close(gcore->fd);
+	if (gcore->fp != NULL) {
+		if (fflush(gcore->fp) == EOF) {
+			error(FATAL, "%s: flush %s\n", gcore->corename,
+			      strerror(errno));
+		}
+		if (fclose(gcore->fp) == EOF) {
+			gcore->fp = NULL;
+			error(FATAL, "%s: close %s\n", gcore->corename,
+			      strerror(errno));
+		}
+		gcore->fp = NULL;
+	}
 
 	if (gcore->flags & GCF_UNDER_COREDUMP) {
 		if (gcore->flags & GCF_SUCCESS)

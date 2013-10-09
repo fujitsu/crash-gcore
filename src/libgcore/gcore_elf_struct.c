@@ -110,42 +110,42 @@ elf64_fill_note_header(struct gcore_elf_struct *this, uint32_t n_namesz,
 	n->n_type = n_type;
 }
 
-static int elf64_write_elf_header(struct gcore_elf_struct *this, int fd)
+static int elf64_write_elf_header(struct gcore_elf_struct *this, FILE *fp)
 {
 	Elf64_Ehdr *e = &((struct gcore_elf64_struct *)this)->ehdr;
 
-	if (write(fd, e, sizeof(*e)) != sizeof(*e))
+	if (fwrite(e, sizeof(*e), 1, fp) != 1)
 		return FALSE;
 
 	return TRUE;
 }
 
-static int elf64_write_section_header(struct gcore_elf_struct *this, int fd)
+static int elf64_write_section_header(struct gcore_elf_struct *this, FILE *fp)
 {
 	Elf64_Shdr *s = &((struct gcore_elf64_struct *)this)->shdr;
 
-	if (write(fd, s, sizeof(*s)) != sizeof(*s))
+	if (fwrite(s, sizeof(*s), 1, fp) != 1)
 		return FALSE;
 
 	return TRUE;
 }
 
-static int elf64_write_program_header(struct gcore_elf_struct *this, int fd)
+static int elf64_write_program_header(struct gcore_elf_struct *this, FILE *fp)
 {
 	Elf64_Phdr *p = &((struct gcore_elf64_struct *)this)->phdr;
 
-	if (write(fd, p, sizeof(*p)) != sizeof(*p))
+	if (fwrite(p, sizeof(*p), 1, fp) != 1)
 		return FALSE;
 
 	return TRUE;
 }
 
-static int elf64_write_note_header(struct gcore_elf_struct *this, int fd,
+static int elf64_write_note_header(struct gcore_elf_struct *this, FILE *fp,
 				   off_t *offset)
 {
 	Elf64_Nhdr *n = &((struct gcore_elf64_struct *)this)->nhdr;
 
-	if (write(fd, n, sizeof(*n)) != sizeof(*n))
+	if (fwrite(n, sizeof(*n), 1, fp) != 1)
 		return FALSE;
 
 	*offset += sizeof(*n);
@@ -283,42 +283,42 @@ elf32_fill_note_header(struct gcore_elf_struct *this, uint32_t n_namesz,
 	n->n_type = n_type;
 }
 
-static int elf32_write_elf_header(struct gcore_elf_struct *this, int fd)
+static int elf32_write_elf_header(struct gcore_elf_struct *this, FILE *fp)
 {
 	Elf32_Ehdr *e = &((struct gcore_elf32_struct *)this)->ehdr;
 
-	if (write(fd, e, sizeof(*e)) != sizeof(*e))
+	if (fwrite(e, sizeof(*e), 1, fp) != 1)
 		return FALSE;
 
 	return TRUE;
 }
 
-static int elf32_write_section_header(struct gcore_elf_struct *this, int fd)
+static int elf32_write_section_header(struct gcore_elf_struct *this, FILE *fp)
 {
 	Elf32_Shdr *s = &((struct gcore_elf32_struct *)this)->shdr;
 
-	if (write(fd, s, sizeof(*s)) != sizeof(*s))
+	if (fwrite(s, sizeof(*s), 1, fp) != 1)
 		return FALSE;
 
 	return TRUE;
 }
 
-static int elf32_write_program_header(struct gcore_elf_struct *this, int fd)
+static int elf32_write_program_header(struct gcore_elf_struct *this, FILE *fp)
 {
 	Elf32_Phdr *p = &((struct gcore_elf32_struct *)this)->phdr;
 
-	if (write(fd, p, sizeof(*p)) != sizeof(*p))
+	if (fwrite(p, sizeof(*p), 1, fp) != 1)
 		return FALSE;
 
 	return TRUE;
 }
 
-static int elf32_write_note_header(struct gcore_elf_struct *this, int fd,
+static int elf32_write_note_header(struct gcore_elf_struct *this, FILE *fp,
 				   off_t *offset)
 {
 	Elf32_Nhdr *n = &((struct gcore_elf32_struct *)this)->nhdr;
 
-	if (write(fd, n, sizeof(*n)) != sizeof(*n))
+	if (fwrite(n, sizeof(*n), 1, fp) != 1)
 		return FALSE;
 
 	*offset += sizeof(*n);
