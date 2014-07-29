@@ -90,7 +90,7 @@ void gcore_coredump(void)
 
 	progressf("Opening file %s ... \n", gcore->corename);
 	gcore->fp = fopen(gcore->corename, "w");
-	if (gcore->fp < 0)
+	if (!gcore->fp)
 		error(FATAL, "%s: open: %s\n", gcore->corename,
 		      strerror(errno));
 	progressf("done.\n");
