@@ -364,6 +364,8 @@ static void gcore_offset_table_init(void)
 	if (GCORE_INVALID_MEMBER(inode_i_nlink))
 		GCORE_ANON_MEMBER_OFFSET_INIT(inode_i_nlink, "inode", "i_nlink");
 	GCORE_MEMBER_OFFSET_INIT(nsproxy_pid_ns, "nsproxy", "pid_ns");
+	if (GCORE_INVALID_MEMBER(nsproxy_pid_ns))
+		GCORE_MEMBER_OFFSET_INIT(nsproxy_pid_ns, "nsproxy", "pid_ns_for_children");
 	GCORE_MEMBER_OFFSET_INIT(mm_context_t_vdso, "mm_context_t", "vdso");
 	GCORE_MEMBER_OFFSET_INIT(mm_struct_arg_start, "mm_struct", "arg_start");
 	GCORE_MEMBER_OFFSET_INIT(mm_struct_arg_end, "mm_struct", "arg_end");
