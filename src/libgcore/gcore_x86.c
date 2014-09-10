@@ -851,7 +851,7 @@ static int ioperm_get(struct task_context *target,
 	readmem(io_bitmap_ptr, KVADDR, buf, size, "ioperm_get: copy IO bitmap",
 		gcore_verbose_error_handle());
 
-	return TRUE;
+	return 0;
 }
 
 #ifdef X86_64
