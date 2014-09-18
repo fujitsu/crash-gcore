@@ -181,8 +181,8 @@ NULL,
 void
 cmd_gcore(void)
 {
-	char c, *foptarg, *voptarg;
-	int optversion;
+	char *foptarg, *voptarg;
+	int c, optversion;
 
 	if (ACTIVE())
 		error(FATAL, "no support on live kernel\n");
@@ -488,6 +488,8 @@ static void gcore_offset_table_init(void)
 	GCORE_MEMBER_OFFSET_INIT(vfp_state_hard, "vfp_state", "hard");
 	GCORE_MEMBER_OFFSET_INIT(vfp_hard_struct_fpregs, "vfp_hard_struct", "fpregs");
 	GCORE_MEMBER_OFFSET_INIT(vfp_hard_struct_fpscr, "vfp_hard_struct", "fpscr");
+	GCORE_MEMBER_OFFSET_INIT(thread_struct_fpsimd_state, "thread_struct", "fpsimd_state");
+	GCORE_MEMBER_OFFSET_INIT(thread_struct_tp_value, "thread_struct", "tp_value");
 }
 
 static void gcore_size_table_init(void)
