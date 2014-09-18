@@ -90,6 +90,30 @@
 #define Elf_Nhdr Elf32_Nhdr
 #endif
 
+#ifdef ARM64
+#define ELF_EXEC_PAGESIZE PAGESIZE()
+
+#define ELF_MACHINE EM_AARCH64
+#define ELF_OSABI ELFOSABI_NONE
+
+#define ELF_CLASS ELFCLASS64
+#define ELF_DATA ELFDATA2LSB
+#define ELF_ARCH EM_AARCH64
+
+#define Elf_Half Elf64_Half
+#define Elf_Word Elf64_Word
+#define Elf_Off Elf64_Off
+
+#define Elf_Ehdr Elf64_Ehdr
+#define Elf_Phdr Elf64_Phdr
+#define Elf_Shdr Elf64_Shdr
+#define Elf_Nhdr Elf64_Nhdr
+
+#ifndef NT_ARM_TLS 
+#define NT_ARM_TLS      0x401           /* ARM TLS register */
+#endif
+#endif
+
 #define PAGE_ALIGN(X) roundup(X, ELF_EXEC_PAGESIZE)
 
 /*
@@ -227,6 +251,11 @@ extern void gcore_default_regsets_init(void);
 #ifdef ARM
 #define REGSET_VIEW_NAME "arm"
 #define REGSET_VIEW_MACHINE EM_ARM
+#endif
+
+#ifdef ARM64
+#define REGSET_VIEW_NAME "aarch64"
+#define REGSET_VIEW_MACHINE EM_AARCH64
 #endif
 
 extern int gcore_arch_get_fp_valid(struct task_context *tc);
@@ -461,12 +490,61 @@ struct user_regs_struct{
 #define ARM_VFPREGS_SIZE ( 32 * 8 /*fpregs*/ + 4 /*fpscr*/ )
 #endif
 
+#ifdef ARM64
+
+typedef unsigned int __u32;
+/*
+ * User structures for general purpose, floating point and debug registers.
+ */
+struct user_pt_regs {
+        __u64           regs[31];
+        __u64           sp;
+        __u64           pc;
+        __u64           pstate;
+};
+
+struct user_fpsimd_state {
+        __uint128_t     vregs[32];
+        __u32           fpsr;
+        __u32           fpcr;
+};
+
+struct user_hwdebug_state {
+        __u32           dbg_info;
+        __u32           pad;
+        struct {
+                __u64   addr;
+                __u32   ctrl;
+                __u32   pad;
+        }               dbg_regs[16];
+};
+
+/* Type for a general-purpose register.  */
+typedef unsigned long elf_greg_t;
+
+/* And the whole bunch of them.  We could have used `struct
+   pt_regs' directly in the typedef, but tradition says that
+   the register set is an array, which does have some peculiar
+   semantics, so leave it that way.  */
+#define ELF_NGREG (sizeof (struct user_pt_regs) / sizeof(elf_greg_t))
+typedef elf_greg_t elf_gregset_t[ELF_NGREG];
+
+/* Register set for the floating-point registers.  */
+typedef struct user_fpsimd_state elf_fpregset_t;
+
+#endif
+
+#if defined(X86) || defined(X86_64) || defined(ARM)
 typedef ulong elf_greg_t;
 #define ELF_NGREG (sizeof(struct user_regs_struct) / sizeof(elf_greg_t))
 typedef elf_greg_t elf_gregset_t[ELF_NGREG];
+#endif
 
 #if defined(X86) || defined(ARM)
 #define PAGE_SIZE 4096
+#endif
+#ifdef ARM64
+#define PAGE_SIZE PAGESIZE()
 #endif
 
 extern int gcore_is_arch_32bit_emulation(struct task_context *tc);
@@ -619,16 +697,25 @@ struct elf_prstatus
 	int pr_fpvalid;		/* True if math co-processor being used.  */
 };
 
+#if defined(X86) || defined(X86_64) || defined(ARM)
 typedef unsigned short __kernel_old_uid_t;
 typedef unsigned short __kernel_old_gid_t;
+#endif
 
-typedef __kernel_old_uid_t      old_uid_t;
-typedef __kernel_old_gid_t      old_gid_t;
-
-#ifdef X86_64
+#if defined(X86_64) || defined(ARM64)
 typedef unsigned int __kernel_uid_t;
 typedef unsigned int __kernel_gid_t;
 #endif
+
+#ifdef ARM64
+#ifndef __kernel_old_uid_t
+typedef __kernel_uid_t  __kernel_old_uid_t;
+typedef __kernel_gid_t  __kernel_old_gid_t;
+#endif
+#endif
+
+typedef __kernel_old_uid_t      old_uid_t;
+typedef __kernel_old_gid_t      old_gid_t;
 
 #if defined(X86) || defined(ARM)
 typedef unsigned short __kernel_uid_t;
@@ -902,6 +989,8 @@ struct gcore_offset_table
 	long thread_struct_xstate;
 	long thread_struct_io_bitmap_max;
 	long thread_struct_io_bitmap_ptr;
+	long thread_struct_fpsimd_state;
+	long thread_struct_tp_value;
 	long user_regset_n;
 	long vfp_state_hard;
 	long vfp_hard_struct_fpregs;

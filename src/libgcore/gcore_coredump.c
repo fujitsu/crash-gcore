@@ -683,7 +683,12 @@ fill_prstatus_note(struct elf_note_info *info, struct task_context *tc,
 		   struct memelfnote *memnote)
 {
 	struct elf_prstatus *prstatus;
+#if defined(X86) || defined(X86_64) || defined(ARM)
 	struct user_regs_struct *regs = (struct user_regs_struct *)memnote->data;
+#endif
+#ifdef ARM64
+	struct user_pt_regs *regs = (struct user_pt_regs *)memnote->data;
+#endif
 	ulong pending_signal_sig0, blocked_sig0, real_parent, group_leader,
 		signal, cutime,	cstime;
 
