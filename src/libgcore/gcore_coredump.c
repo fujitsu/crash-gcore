@@ -475,6 +475,7 @@ fill_write_thread_core_info(FILE *fp, struct task_context *tc,
         *total += notesize(&memnote);
 	writenote(&memnote, fp, offset);
 	FREEBUF(buf);
+	FREEBUF(memnote.data);
 
         /*
 	 * Fill in the two process-wide notes.
@@ -681,16 +682,13 @@ static void
 fill_prstatus_note(struct elf_note_info *info, struct task_context *tc,
 		   struct memelfnote *memnote)
 {
-	struct elf_prstatus dummy, *prstatus = (struct elf_prstatus *)memnote->data;
+	struct elf_prstatus *prstatus;
 	struct user_regs_struct *regs = (struct user_regs_struct *)memnote->data;
 	ulong pending_signal_sig0, blocked_sig0, real_parent, group_leader,
 		signal, cutime,	cstime;
 
-	/* FIXME: horible workaround during proto-type development... */
-	memset(&dummy, 0, sizeof(dummy));
-	memcpy(&dummy.pr_reg, regs, sizeof(*regs));
-	prstatus = memnote->data;
-	memcpy(prstatus, &dummy, sizeof(dummy));
+	prstatus = (struct elf_prstatus *)GETBUF(sizeof(*prstatus));
+	memcpy(&prstatus->pr_reg, regs, sizeof(*regs));
 
         fill_note(memnote, "CORE", NT_PRSTATUS, sizeof(*prstatus), prstatus);
 
@@ -769,10 +767,14 @@ compat_fill_prstatus_note(struct elf_note_info *info,
 			  struct task_context *tc,
 			  struct memelfnote *memnote)
 {
-	struct compat_elf_prstatus *prstatus =
-		(struct compat_elf_prstatus *)memnote->data;
+	struct compat_elf_prstatus *prstatus;
+	compat_elf_gregset_t *regs =
+		(compat_elf_gregset_t *)memnote->data;
 	ulong pending_signal_sig0, blocked_sig0, real_parent, group_leader,
 		signal, cutime,	cstime;
+
+	prstatus = (struct compat_elf_prstatus *)GETBUF(sizeof(*prstatus));
+	memcpy(&prstatus->pr_reg, regs, sizeof(*regs));
 
         fill_note(memnote, "CORE", NT_PRSTATUS, sizeof(*prstatus), prstatus);
 
