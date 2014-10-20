@@ -114,6 +114,34 @@
 #endif
 #endif
 
+#ifdef PPC64
+#define ELF_EXEC_PAGESIZE PAGESIZE()
+
+#define ELF_MACHINE EM_PPC64
+#define ELF_OSABI ELFOSABI_NONE
+
+#define ELF_CLASS ELFCLASS64
+
+#ifndef ELF_DATA
+#if __BYTE_ORDER == __LITTLE_ENDIAN
+#define ELF_DATA ELFDATA2LSB
+#else
+#define ELF_DATA ELFDATA2MSB
+#endif
+#endif
+
+#define ELF_ARCH EM_PPC64
+
+#define Elf_Half Elf64_Half
+#define Elf_Word Elf64_Word
+#define Elf_Off Elf64_Off
+
+#define Elf_Ehdr Elf64_Ehdr
+#define Elf_Phdr Elf64_Phdr
+#define Elf_Shdr Elf64_Shdr
+#define Elf_Nhdr Elf64_Nhdr
+#endif
+
 #define PAGE_ALIGN(X) roundup(X, ELF_EXEC_PAGESIZE)
 
 /*
@@ -256,6 +284,11 @@ extern void gcore_default_regsets_init(void);
 #ifdef ARM64
 #define REGSET_VIEW_NAME "aarch64"
 #define REGSET_VIEW_MACHINE EM_AARCH64
+#endif
+
+#ifdef PPC64
+#define REGSET_VIEW_NAME "ppc64"
+#define REGSET_VIEW_MACHINE EM_PPC64
 #endif
 
 extern int gcore_arch_get_fp_valid(struct task_context *tc);
@@ -534,6 +567,32 @@ typedef struct user_fpsimd_state elf_fpregset_t;
 
 #endif
 
+#ifdef PPC64
+/* taken from asm/ptrace.h */
+struct user_regs_struct {
+	unsigned long gpr[32];
+	unsigned long nip;
+	unsigned long msr;
+	unsigned long orig_gpr3;	/* Used for restarting system calls */
+	unsigned long ctr;
+	unsigned long link;
+	unsigned long xer;
+	unsigned long ccr;
+#ifdef __powerpc64__
+	unsigned long softe;		/* Soft enabled/disabled */
+#else
+	unsigned long mq;		/* 601 only (not used at present) */
+			/* Used on APUS to hold IPL value. */
+#endif
+	unsigned long trap;		/* Reason for being here */
+	/* N.B. for critical exceptions on 4xx, the dar and dsisr
+	   fields are overloaded to hold srr0 and srr1. */
+	unsigned long dar;		/* Fault registers */
+	unsigned long dsisr;		/* on 4xx/Book-E used for ESR */
+	unsigned long result;		/* Result of a system call */
+};
+#endif
+
 #if defined(X86) || defined(X86_64) || defined(ARM)
 typedef ulong elf_greg_t;
 #define ELF_NGREG (sizeof(struct user_regs_struct) / sizeof(elf_greg_t))
@@ -543,7 +602,7 @@ typedef elf_greg_t elf_gregset_t[ELF_NGREG];
 #if defined(X86) || defined(ARM)
 #define PAGE_SIZE 4096
 #endif
-#ifdef ARM64
+#if defined(ARM64) || defined(PPC64)
 #define PAGE_SIZE PAGESIZE()
 #endif
 
@@ -702,7 +761,7 @@ typedef unsigned short __kernel_old_uid_t;
 typedef unsigned short __kernel_old_gid_t;
 #endif
 
-#if defined(X86_64) || defined(ARM64)
+#if defined(X86_64) || defined(ARM64) || defined(PPC64)
 typedef unsigned int __kernel_uid_t;
 typedef unsigned int __kernel_gid_t;
 #endif
