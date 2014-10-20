@@ -44,7 +44,7 @@ elf64_fill_elf_header(struct gcore_elf_struct *this, uint16_t e_phnum,
 
 	BCOPY(ELFMAG, e->e_ident, SELFMAG);
 	e->e_ident[EI_CLASS] = ELFCLASS64;
-	e->e_ident[EI_DATA] = ELFDATA2LSB;
+	e->e_ident[EI_DATA] = ELF_DATA;
 	e->e_ident[EI_VERSION] = EV_CURRENT;
 	e->e_ident[EI_OSABI] = ei_osabi;
 	e->e_ehsize = sizeof(Elf64_Ehdr);
@@ -217,7 +217,7 @@ elf32_fill_elf_header(struct gcore_elf_struct *this, uint16_t e_phnum,
 
 	BCOPY(ELFMAG, e->e_ident, SELFMAG);
 	e->e_ident[EI_CLASS] = ELFCLASS32;
-	e->e_ident[EI_DATA] = ELFDATA2LSB;
+	e->e_ident[EI_DATA] = ELF_DATA;
 	e->e_ident[EI_VERSION] = EV_CURRENT;
 	e->e_ident[EI_OSABI] = ei_osabi;
 	e->e_ehsize = sizeof(Elf32_Ehdr);
