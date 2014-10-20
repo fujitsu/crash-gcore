@@ -18,12 +18,16 @@
 #include <stdio.h>
 #include <elf.h>
 
-#ifdef X86_64
+#if defined(X86_64) || defined(ARM64)
 #define GCORE_ARCH_COMPAT 1
 #endif
 
 #ifdef X86_64
 #include <gcore_compat_x86.h>
+#endif
+
+#ifdef ARM64
+#include <gcore_compat_arm.h>
 #endif
 
 #define PN_XNUM 0xffff
@@ -109,7 +113,7 @@
 #define Elf_Shdr Elf64_Shdr
 #define Elf_Nhdr Elf64_Nhdr
 
-#ifndef NT_ARM_TLS 
+#ifndef NT_ARM_TLS
 #define NT_ARM_TLS      0x401           /* ARM TLS register */
 #endif
 #endif
@@ -443,7 +447,6 @@ struct user_regs_struct {
 	unsigned long	fs;
 	unsigned long	gs;
 };
-#endif
 
 struct user_regs_struct32 {
 	uint32_t ebx, ecx, edx, esi, edi, ebp, eax;
@@ -454,6 +457,7 @@ struct user_regs_struct32 {
 	uint32_t eflags, esp;
 	unsigned short ss, __ss;
 };
+#endif
 
 #ifdef X86
 struct user_regs_struct {
@@ -565,6 +569,29 @@ typedef elf_greg_t elf_gregset_t[ELF_NGREG];
 /* Register set for the floating-point registers.  */
 typedef struct user_fpsimd_state elf_fpregset_t;
 
+#ifdef GCORE_ARCH_COMPAT
+/* AArch32 registers. */
+struct user_regs_struct32{
+	uint32_t r0;
+	uint32_t r1;
+	uint32_t r2;
+	uint32_t r3;
+	uint32_t r4;
+	uint32_t r5;
+	uint32_t r6;
+	uint32_t r7;
+	uint32_t r8;
+	uint32_t r9;
+	uint32_t r10;
+	uint32_t fp;
+	uint32_t ip;
+	uint32_t sp;
+	uint32_t lr;
+	uint32_t pc;
+	uint32_t cpsr;
+	uint32_t ORIG_r0;
+};
+#endif /* GCORE_ARCH_COMPAT */
 #endif
 
 #ifdef PPC64

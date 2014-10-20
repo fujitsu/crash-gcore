@@ -102,14 +102,133 @@ static const struct user_regset_view arm64_regset_view = {
 	.e_machine = EM_AARCH64,
 };
 
+#ifdef GCORE_ARCH_COMPAT
+enum compat_regset {
+	REGSET_COMPAT_GPR,
+	REGSET_COMPAT_VFP,
+};
+
+struct pt_regs {
+	struct user_pt_regs user_regs;
+	unsigned long orig_x0;
+	unsigned long syscallno;
+};
+
+static int compat_gpr_get(struct task_context *target,
+			  const struct user_regset *regset,
+			  unsigned int size, void *buf)
+{
+	struct pt_regs pt_regs;
+	struct user_regs_struct32 *regs = (struct user_regs_struct32 *)buf;
+
+	BZERO(&pt_regs, sizeof(pt_regs));
+	BZERO(regs, sizeof(*regs));
+
+	readmem(machdep->get_stacktop(target->task) - 16 - SIZE(pt_regs), KVADDR,
+		&pt_regs, sizeof(struct pt_regs), "compat_gpr_get: pt_regs",
+		gcore_verbose_error_handle());
+
+	regs->r0 = pt_regs.user_regs.regs[0];
+	regs->r1 = pt_regs.user_regs.regs[1];
+	regs->r2 = pt_regs.user_regs.regs[2];
+	regs->r3 = pt_regs.user_regs.regs[3];
+	regs->r4 = pt_regs.user_regs.regs[4];
+	regs->r5 = pt_regs.user_regs.regs[5];
+	regs->r6 = pt_regs.user_regs.regs[6];
+	regs->r7 = pt_regs.user_regs.regs[7];
+	regs->r8 = pt_regs.user_regs.regs[8];
+	regs->r9 = pt_regs.user_regs.regs[9];
+	regs->r10 = pt_regs.user_regs.regs[10];
+	regs->fp = pt_regs.user_regs.regs[11];
+	regs->ip = pt_regs.user_regs.regs[12];
+	regs->sp = pt_regs.user_regs.regs[13];
+	regs->lr = pt_regs.user_regs.regs[14];
+	regs->pc = pt_regs.user_regs.pc;
+	regs->cpsr = pt_regs.user_regs.pstate;
+	regs->ORIG_r0 = pt_regs.orig_x0;
+
+	return 0;
+}
+
+static int compat_vfp_get(struct task_context *target,
+			  const struct user_regset *regset,
+			  unsigned int size, void *buf)
+{
+	/*
+	 * The VFP registers are packed into the fpsimd_state, so they all sit
+	 * nicely together for us. We just need to create the fpscr separately.
+	 */
+	struct user_fpsimd_state *fpr = (struct user_fpsimd_state *)buf;
+	compat_ulong_t fpscr;
+
+	BZERO(fpr, sizeof(*fpr));
+	readmem(target->task + OFFSET(task_struct_thread)
+		+ GCORE_OFFSET(thread_struct_fpsimd_state),
+		KVADDR, fpr, sizeof(struct user_fpsimd_state),
+		"compat_fpr_get: user_fpsimd_state",
+		gcore_verbose_error_handle());
+
+	fpscr = (fpr->fpsr & VFP_FPSCR_STAT_MASK) |
+		(fpr->fpcr & VFP_FPSCR_CTRL_MASK);
+
+	fpr->fpcr = fpscr;
+
+	return 0;
+}
+
+#define NT_ARM_VFP	0x400           /* ARM VFP/NEON registers */
+static const struct user_regset aarch32_regsets[] = {
+	[REGSET_COMPAT_GPR] = {
+		.core_note_type = NT_PRSTATUS,
+		.name = "CORE",
+		.size = sizeof(struct user_regs_struct32),
+		.get = compat_gpr_get,
+	},
+	[REGSET_COMPAT_VFP] = {
+		.core_note_type = NT_ARM_VFP,
+		.name = "CORE",
+		.size = VFP_STATE_SIZE,
+		.get = compat_vfp_get,
+	},
+};
+
+static const struct user_regset_view aarch32_regset_view = {
+	.name = "aarch32",
+	.e_machine = EM_ARM,
+	.regsets = aarch32_regsets,
+	.n = ARRAY_SIZE(aarch32_regsets)
+};
+#endif /* GCORE_ARCH_COMPAT */
+
 const struct user_regset_view *
 task_user_regset_view(void)
 {
+#ifdef GCORE_ARCH_COMPAT
+	if (gcore_is_arch_32bit_emulation(CURRENT_CONTEXT()))
+		return &aarch32_regset_view;
+#endif /* GCORE_ARCH_COMPAT */
 	return &arm64_regset_view;
 }
 
+#ifdef GCORE_ARCH_COMPAT
+enum gcore_arm64_thread_info_flag
+{
+	TIF_32BIT = 22		/* 32bit process */
+};
+#endif /* GCORE_ARCH_COMPAT */
+
 int gcore_is_arch_32bit_emulation(struct task_context *tc)
 {
+#ifdef GCORE_ARCH_COMPAT
+	uint32_t flags;
+	char *thread_info_buf;
+
+	thread_info_buf = fill_thread_info(tc->thread_info);
+	flags = ULONG(thread_info_buf + OFFSET(thread_info_flags));
+
+	if (flags & (1UL << TIF_32BIT))
+		return TRUE;
+#endif /* GCORE_ARCH_COMPAT */
 	return FALSE;
 }
 
