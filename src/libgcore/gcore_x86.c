@@ -577,7 +577,7 @@ static ulong gcore_x86_get_thread_struct_fpu_thread_xstate(struct task_context *
 
 static ulong gcore_x86_get_thread_struct_fpu_thread_xstate_size(void)
 {
-	return GCORE_SIZE(thread_xstate);
+	return sizeof(struct user_i387_struct);
 }
 
 static ulong gcore_x86_get_thread_struct_thread_xstate(struct task_context *tc)
