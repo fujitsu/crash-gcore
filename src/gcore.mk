@@ -12,8 +12,8 @@
 # GNU General Public License for more details.
 #
 
-VERSION=1.3.0-rc2
-DATE=24 Oct 2014
+VERSION=1.3.0
+DATE=4 Nov 2014
 PERIOD=2010, 2011, 2012, 2013, 2014
 
 ARCH=UNSUPPORTED
