@@ -1335,6 +1335,23 @@ static inline void restore_rest(ulong task, struct user_regs_struct *regs,
 }
 
 /**
+ * gcore_x86_64_get_old_rsp_zero() - get rsp at per-cpu area
+ *
+ * @cpu target CPU's CPU id
+ *
+ * Given a CPU id, returns a RSP value saved at per-cpu area for the
+ * CPU whose id is the given CPU id.
+ *
+ * This is a method of get_old_rsp() returning always 0 for when no
+ * appropriate method is found.
+ */
+static ulong gcore_x86_64_get_old_rsp_zero(int cpu)
+{
+	error(WARNING, "failed to detect location of sp register, forcing 0.\n");
+	return 0UL;
+}
+
+/**
  * gcore_x86_64_get_old_rsp() - get rsp at per-cpu area
  *
  * @cpu target CPU's CPU id
@@ -1871,6 +1888,9 @@ static void gcore_x86_table_register_get_old_rsp(void)
 
 	else if (symbol_exists("_cpu_pda"))
 		gxt->get_old_rsp = gcore_x86_64_get_cpu__pda_oldrsp;
+
+	else
+		gxt->get_old_rsp = gcore_x86_64_get_old_rsp_zero;
 }
 
 static void gcore_x86_table_register_user_stack_pointer(void)
