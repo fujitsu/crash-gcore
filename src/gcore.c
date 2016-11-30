@@ -463,10 +463,16 @@ static void gcore_offset_table_init(void)
 	GCORE_MEMBER_OFFSET_INIT(thread_info_vfpstate, "thread_info", "vfpstate");
 	GCORE_MEMBER_OFFSET_INIT(thread_struct_ds, "thread_struct", "ds");
 	GCORE_MEMBER_OFFSET_INIT(thread_struct_es, "thread_struct", "es");
-	GCORE_MEMBER_OFFSET_INIT(thread_struct_fs, "thread_struct", "fs");
+	if (MEMBER_EXISTS("thread_struct", "fs"))
+		GCORE_MEMBER_OFFSET_INIT(thread_struct_fs, "thread_struct", "fs");
+	else
+		GCORE_MEMBER_OFFSET_INIT(thread_struct_fs, "thread_struct", "fsbase");
 	GCORE_MEMBER_OFFSET_INIT(thread_struct_fsindex, "thread_struct", "fsindex");
 	GCORE_MEMBER_OFFSET_INIT(thread_struct_fpu, "thread_struct", "fpu");
-	GCORE_MEMBER_OFFSET_INIT(thread_struct_gs, "thread_struct", "gs");
+	if (MEMBER_EXISTS("thread_struct", "gs"))
+		GCORE_MEMBER_OFFSET_INIT(thread_struct_gs, "thread_struct", "gs");
+	else
+		GCORE_MEMBER_OFFSET_INIT(thread_struct_gs, "thread_struct", "gsbase");
 	GCORE_MEMBER_OFFSET_INIT(thread_struct_gsindex, "thread_struct", "gsindex");
 	GCORE_MEMBER_OFFSET_INIT(thread_struct_i387, "thread_struct", "i387");
 	GCORE_MEMBER_OFFSET_INIT(thread_struct_tls_array, "thread_struct", "tls_array");
@@ -499,9 +505,15 @@ static void gcore_size_table_init(void)
 	GCORE_MEMBER_SIZE_INIT(mm_struct_saved_auxv, "mm_struct", "saved_auxv");
 	GCORE_MEMBER_SIZE_INIT(thread_struct_ds, "thread_struct", "ds");
 	GCORE_MEMBER_SIZE_INIT(thread_struct_es, "thread_struct", "es");
-	GCORE_MEMBER_SIZE_INIT(thread_struct_fs, "thread_struct", "fs");
+	if (MEMBER_EXISTS("thread_struct", "fs"))
+		GCORE_MEMBER_SIZE_INIT(thread_struct_fs, "thread_struct", "fs");
+	else
+		GCORE_MEMBER_SIZE_INIT(thread_struct_fs, "thread_struct", "fsbase");
 	GCORE_MEMBER_SIZE_INIT(thread_struct_fsindex, "thread_struct", "fsindex");
-	GCORE_MEMBER_SIZE_INIT(thread_struct_gs, "thread_struct", "gs");
+	if (MEMBER_EXISTS("thread_struct", "gs"))
+		GCORE_MEMBER_SIZE_INIT(thread_struct_gs, "thread_struct", "gs");
+	else
+		GCORE_MEMBER_SIZE_INIT(thread_struct_gs, "thread_struct", "gsbase");
 	GCORE_MEMBER_SIZE_INIT(thread_struct_gsindex, "thread_struct", "gsindex");
 	GCORE_MEMBER_SIZE_INIT(thread_struct_tls_array, "thread_struct", "tls_array");
 	GCORE_STRUCT_SIZE_INIT(thread_xstate, "thread_xstate");
