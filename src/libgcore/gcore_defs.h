@@ -1070,6 +1070,7 @@ struct gcore_offset_table
 	long thread_struct_gs;
 	long thread_struct_gsindex;
 	long thread_struct_i387;
+	long thread_struct_sp0;
 	long thread_struct_tls_array;
 	long thread_struct_usersp;
 	long thread_struct_xstate;
