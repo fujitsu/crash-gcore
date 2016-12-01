@@ -24,6 +24,7 @@ struct gcore_x86_table
 {
 #ifdef X86_64
 	ulong (*get_old_rsp)(int cpu);
+	ulong (*user_stack_pointer)(struct task_context *tc);
 #endif
 	ulong (*get_thread_struct_fpu)(struct task_context *tc);
 	ulong (*get_thread_struct_fpu_size)(void);
@@ -42,6 +43,9 @@ static ulong gcore_x86_64_get_old_rsp(int cpu);
 static ulong gcore_x86_64_get_per_cpu__old_rsp(int cpu);
 static ulong gcore_x86_64_get_cpu_pda_oldrsp(int cpu);
 static ulong gcore_x86_64_get_cpu__pda_oldrsp(int cpu);
+
+static ulong gcore_x86_64_user_stack_pointer_userrsp(struct task_context *tc);
+static ulong gcore_x86_64_user_stack_pointer_pt_regs(struct task_context *tc);
 #endif
 
 static ulong
@@ -1421,6 +1425,50 @@ static ulong gcore_x86_64_get_cpu__pda_oldrsp(int cpu)
 	return oldrsp;
 }
 
+static ulong gcore_x86_64_user_stack_pointer_userrsp(struct task_context *tc)
+{
+	ulong usersp;
+
+	/*
+	 * rsp is saved in per-CPU old_rsp, which is saved in
+	 * thread->usersp at each context switch.
+	 */
+	if (is_task_active(tc->task))
+		return gxt->get_old_rsp(tc->processor);
+
+	readmem(tc->task + OFFSET(task_struct_thread) +
+		GCORE_OFFSET(thread_struct_usersp), KVADDR, &usersp,
+		sizeof(usersp),
+		"gcore_x86_64_user_stack_pointer_userrsp: usersp",
+		gcore_verbose_error_handle());
+
+	return usersp;
+}
+
+static ulong gcore_x86_64_user_stack_pointer_pt_regs(struct task_context *tc)
+{
+	char *pt_regs_buf;
+	ulong sp0, sp;
+	struct machine_specific *ms = machdep->machspec;
+
+	pt_regs_buf = GETBUF(SIZE(pt_regs));
+
+	readmem(tc->task + OFFSET(task_struct_thread) +
+		GCORE_OFFSET(thread_struct_sp0), KVADDR, &sp0,
+		sizeof(sp0),
+		"gcore_x86_64_user_stack_pointer_pt_regs: sp0",
+		gcore_verbose_error_handle());
+
+	readmem(sp0 - SIZE(pt_regs), KVADDR, pt_regs_buf, SIZE(pt_regs),
+		"gcore_x86_64_user_stack_pointer_pt_regs: pt_regs",
+		gcore_verbose_error_handle());
+
+	sp = ULONG(pt_regs_buf + ms->pto.rsp);
+
+	FREEBUF(pt_regs_buf);
+	return sp;
+}
+
 static int
 gcore_find_regs_from_bt_output(FILE *output, char *buf, size_t bufsize)
 {
@@ -1648,18 +1696,7 @@ restore_regs_syscall_context(struct task_context *target,
 {
 	const int nr_syscall = (int)regs->orig_ax;
 
-	/*
-	 * rsp is saved in per-CPU old_rsp, which is saved in
-	 * thread->usersp at each context switch.
-	 */
-	if (is_task_active(target->task)) {
-		regs->sp = gxt->get_old_rsp(target->processor);
-	} else {
-		readmem(target->task + OFFSET(task_struct_thread) +
-			GCORE_OFFSET(thread_struct_usersp), KVADDR, &regs->sp,
-			sizeof(regs->sp),
-			"genregs_get: usersp", gcore_verbose_error_handle());
-	}
+	regs->sp = gxt->user_stack_pointer(target);
 
 	/*
 	 * entire registers are saved for special system calls.
@@ -1835,6 +1872,16 @@ static void gcore_x86_table_register_get_old_rsp(void)
 	else if (symbol_exists("_cpu_pda"))
 		gxt->get_old_rsp = gcore_x86_64_get_cpu__pda_oldrsp;
 }
+
+static void gcore_x86_table_register_user_stack_pointer(void)
+{
+	if (MEMBER_EXISTS("thread_struct", "usersp") ||
+	    MEMBER_EXISTS("thread_struct", "userrsp"))
+		gxt->user_stack_pointer = gcore_x86_64_user_stack_pointer_userrsp;
+
+	else
+		gxt->user_stack_pointer = gcore_x86_64_user_stack_pointer_pt_regs;
+}
 #endif
 
 static void gcore_x86_table_register_get_thread_struct_fpu(void)
@@ -1911,6 +1958,7 @@ static void gcore_x86_table_register_tsk_used_math(void)
 void gcore_x86_table_init(void)
 {
 	gcore_x86_table_register_get_old_rsp();
+	gcore_x86_table_register_user_stack_pointer();
 	gcore_x86_table_register_get_thread_struct_fpu();
 	gcore_x86_table_register_is_special_syscall();
 	gcore_x86_table_register_is_special_ia32_syscall();

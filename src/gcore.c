@@ -480,6 +480,7 @@ static void gcore_offset_table_init(void)
 		GCORE_MEMBER_OFFSET_INIT(thread_struct_usersp, "thread_struct", "usersp");
 	else if (MEMBER_EXISTS("thread_struct", "userrsp"))
 		GCORE_MEMBER_OFFSET_INIT(thread_struct_usersp, "thread_struct", "userrsp");
+	GCORE_MEMBER_OFFSET_INIT(thread_struct_sp0, "thread_struct", "sp0");
 	if (MEMBER_EXISTS("thread_struct", "xstate"))
 		GCORE_MEMBER_OFFSET_INIT(thread_struct_xstate, "thread_struct", "xstate");
 	else if (MEMBER_EXISTS("thread_struct", "i387"))
