@@ -20,6 +20,9 @@
 #include <elf.h>
 #include <asm/ldt.h>
 
+#undef MIN
+#define MIN(X,Y) (((X) < (Y)) ? (X) : (Y))
+
 struct gcore_x86_table
 {
 #ifdef X86_64
@@ -356,17 +359,14 @@ static int xfpregs_get(struct task_context *target,
 		       unsigned int size,
 		       void *buf)
 {
-	struct i387_fxsave_struct *fxsave = (struct i387_fxsave_struct *)buf;
 	union thread_xstate xstate;
 
 	readmem(gxt->get_thread_struct_fpu(target), KVADDR, &xstate,
-		gxt->get_thread_struct_fpu_size(),
+		sizeof(xstate),
 		"xfpregs_get: xstate", gcore_verbose_error_handle());
-	memcpy(buf, &xstate.fsave, sizeof(xstate.fsave));
+	memcpy(buf, &xstate.fsave, MIN(size, sizeof(xstate.fsave)));
 
 	init_fpu(target->task);
-
-	*fxsave = xstate.fxsave;
 
 	return 0;
 }
@@ -489,7 +489,7 @@ convert_from_fxsr(struct user_i387_ia32_struct *env, struct task_context *target
 	int i;
 
 	readmem(gxt->get_thread_struct_fpu(target), KVADDR, &xstate,
-		gxt->get_thread_struct_fpu_size(), "convert_from_fxsr: xstate",
+		sizeof(xstate), "convert_from_fxsr: xstate",
 		gcore_verbose_error_handle());
 
 	to = (struct _fpreg *) &env->st_space[0];
@@ -553,9 +553,9 @@ static int fpregs_get(struct task_context *target,
 
 	if (!cpu_has_fxsr()) {
 		readmem(gxt->get_thread_struct_fpu(target), KVADDR, &xstate,
-			gxt->get_thread_struct_fpu_size(),
+			sizeof(xstate),
 			"fpregs_get: xstate", gcore_verbose_error_handle());
-		memcpy(buf, &xstate.fsave, sizeof(xstate.fsave));
+		memcpy(buf, &xstate.fsave, MIN(size, sizeof(xstate.fsave)));
 		return 0;
 	}
 
