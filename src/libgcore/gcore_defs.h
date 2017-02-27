@@ -94,6 +94,26 @@
 #define Elf_Nhdr Elf32_Nhdr
 #endif
 
+#ifdef MIPS
+#define ELF_EXEC_PAGESIZE 4096
+
+#define ELF_MACHINE EM_MIPS
+#define ELF_OSABI ELFOSABI_NONE
+
+#define ELF_CLASS ELFCLASS32
+#define ELF_DATA ELFDATA2LSB
+#define ELF_ARCH EM_MIPS
+
+#define Elf_Half Elf32_Half
+#define Elf_Word Elf32_Word
+#define Elf_Off Elf32_Off
+
+#define Elf_Ehdr Elf32_Ehdr
+#define Elf_Phdr Elf32_Phdr
+#define Elf_Shdr Elf32_Shdr
+#define Elf_Nhdr Elf32_Nhdr
+#endif
+
 #ifdef ARM64
 #define ELF_EXEC_PAGESIZE PAGESIZE()
 
@@ -288,6 +308,11 @@ extern void gcore_default_regsets_init(void);
 #ifdef ARM64
 #define REGSET_VIEW_NAME "aarch64"
 #define REGSET_VIEW_MACHINE EM_AARCH64
+#endif
+
+#ifdef MIPS
+#define REGSET_VIEW_NAME "mips"
+#define REGSET_VIEW_MACHINE EM_MIPS
 #endif
 
 #ifdef PPC64
@@ -594,6 +619,12 @@ struct user_regs_struct32{
 #endif /* GCORE_ARCH_COMPAT */
 #endif
 
+#ifdef MIPS
+struct user_regs_struct {
+	unsigned long gregs[45];
+};
+#endif
+
 #ifdef PPC64
 /* taken from asm/ptrace.h */
 struct user_regs_struct {
@@ -620,13 +651,13 @@ struct user_regs_struct {
 };
 #endif
 
-#if defined(X86) || defined(X86_64) || defined(ARM)
+#if defined(X86) || defined(X86_64) || defined(ARM) || defined(MIPS)
 typedef ulong elf_greg_t;
 #define ELF_NGREG (sizeof(struct user_regs_struct) / sizeof(elf_greg_t))
 typedef elf_greg_t elf_gregset_t[ELF_NGREG];
 #endif
 
-#if defined(X86) || defined(ARM)
+#if defined(X86) || defined(ARM) || defined(MIPS)
 #define PAGE_SIZE 4096
 #endif
 #if defined(ARM64) || defined(PPC64)
@@ -783,7 +814,7 @@ struct elf_prstatus
 	int pr_fpvalid;		/* True if math co-processor being used.  */
 };
 
-#if defined(X86) || defined(X86_64) || defined(ARM)
+#if defined(X86) || defined(X86_64) || defined(ARM) || defined(MIPS)
 typedef unsigned short __kernel_old_uid_t;
 typedef unsigned short __kernel_old_gid_t;
 #endif
@@ -803,7 +834,7 @@ typedef __kernel_gid_t  __kernel_old_gid_t;
 typedef __kernel_old_uid_t      old_uid_t;
 typedef __kernel_old_gid_t      old_gid_t;
 
-#if defined(X86) || defined(ARM)
+#if defined(X86) || defined(ARM) || defined(MIPS)
 typedef unsigned short __kernel_uid_t;
 typedef unsigned short __kernel_gid_t;
 #endif

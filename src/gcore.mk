@@ -42,6 +42,12 @@ ifeq ($(shell arch), aarch64)
   ARCH=SUPPORTED
 endif
 
+ifeq ($(shell arch), mips)
+  TARGET=MIPS
+  TARGET_CFLAGS=
+  ARCH=SUPPORTED
+endif
+
 ifeq ($(shell arch), ppc64)
   TARGET=PPC64
   TARGET_CFLAGS=
@@ -83,6 +89,10 @@ endif
 
 ifneq (,$(findstring $(TARGET), ARM64))
 GCORE_CFILES += libgcore/gcore_arm64.c
+endif
+
+ifneq (,$(findstring $(TARGET), MIPS))
+GCORE_CFILES += libgcore/gcore_mips.c
 endif
 
 ifneq (,$(findstring $(TARGET), PPC64))
