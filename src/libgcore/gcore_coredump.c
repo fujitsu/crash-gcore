@@ -683,7 +683,7 @@ fill_prstatus_note(struct elf_note_info *info, struct task_context *tc,
 		   struct memelfnote *memnote)
 {
 	struct elf_prstatus *prstatus;
-#if defined(X86) || defined(X86_64) || defined(ARM) || defined(PPC64)
+#if defined(X86) || defined(X86_64) || defined(ARM) || defined(MIPS) || defined(PPC64)
 	struct user_regs_struct *regs = (struct user_regs_struct *)memnote->data;
 #endif
 #ifdef ARM64
