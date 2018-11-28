@@ -52,6 +52,8 @@ static ulong gcore_x86_64_user_stack_pointer_pt_regs(struct task_context *tc);
 #endif
 
 static ulong
+gcore_x86_get_thread_struct_fpu_fpregs_state(struct task_context *tc);
+static ulong
 gcore_x86_get_thread_struct_fpu_thread_xstate(struct task_context *tc);
 static ulong gcore_x86_get_thread_struct_fpu_thread_xstate_size(void);
 static ulong
@@ -85,6 +87,7 @@ static int is_special_ia32_syscall_v26(int nr_syscall);
 
 static int tsk_used_math_v0(ulong task);
 static int tsk_used_math_v11(ulong task);
+static int tsk_used_math_v4_14(ulong task);
 
 #ifdef X86_64
 static void gcore_x86_64_regset_xstate_init(void);
@@ -566,6 +569,14 @@ static int fpregs_get(struct task_context *target,
         return 0;
 }
 
+static ulong gcore_x86_get_thread_struct_fpu_fpregs_state(struct task_context *tc)
+{
+	return tc->task +
+		OFFSET(task_struct_thread) +
+		GCORE_OFFSET(thread_struct_fpu) +
+		GCORE_OFFSET(fpu_state);
+}
+
 static ulong gcore_x86_get_thread_struct_fpu_thread_xstate(struct task_context *tc)
 {
 	ulong state;
@@ -1012,6 +1023,26 @@ static int tsk_used_math_v11(ulong task)
 		gcore_verbose_error_handle());
 
 	return !!(flags & PF_USED_MATH);
+}
+
+static int tsk_used_math_v4_14(ulong task)
+{
+	unsigned char initialized;
+
+	if (!cpu_has_fxsr())
+		return 0;
+
+	readmem(task +
+		OFFSET(task_struct_thread) +
+		GCORE_OFFSET(thread_struct_fpu) +
+		MEMBER_OFFSET("fpu", "initialized"),
+		KVADDR,
+		&initialized,
+		sizeof(initialized),
+		"tsk_used_math_v4_14: initialized",
+		gcore_verbose_error_handle());
+
+	return !!initialized;
 }
 
 static inline int
@@ -1917,8 +1948,12 @@ static void gcore_x86_table_register_user_stack_pointer(void)
 static void gcore_x86_table_register_get_thread_struct_fpu(void)
 {
 	if (MEMBER_EXISTS("thread_struct", "fpu")) {
-		gxt->get_thread_struct_fpu =
-			gcore_x86_get_thread_struct_fpu_thread_xstate;
+		if (MEMBER_OFFSET("fpu", "state") == 8)
+			gxt->get_thread_struct_fpu =
+				gcore_x86_get_thread_struct_fpu_thread_xstate;
+		else
+			gxt->get_thread_struct_fpu =
+				gcore_x86_get_thread_struct_fpu_fpregs_state;
 		gxt->get_thread_struct_fpu_size =
 			gcore_x86_get_thread_struct_fpu_thread_xstate_size;
 	} else if (MEMBER_EXISTS("thread_struct", "xstate")) {
@@ -1977,7 +2012,9 @@ static void gcore_x86_table_register_is_special_ia32_syscall(void)
  */
 static void gcore_x86_table_register_tsk_used_math(void)
 {
-	if (GCORE_VALID_MEMBER(task_struct_used_math))
+	if (MEMBER_EXISTS("fpu", "initialized"))
+		gxt->tsk_used_math = tsk_used_math_v4_14;
+	else if (GCORE_VALID_MEMBER(task_struct_used_math))
 		gxt->tsk_used_math = tsk_used_math_v0;
 	else
 		gxt->tsk_used_math = tsk_used_math_v11;
