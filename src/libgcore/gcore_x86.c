@@ -1843,6 +1843,15 @@ static int genregs_get(struct task_context *target,
 		      "system call instruction used could not be found\n");
 	case GCORE_KERNEL_ENTRY_IRQ:
 	case GCORE_KERNEL_ENTRY_INT80:
+		/*
+		 * The commit ff467594f2a4be01a0fa5e9ffc223fa930d232dd
+		 * in the linux kernel begins saving all registers
+		 * including callee-saved registers on the bottom of
+		 * the kernel stack even on the IRQ entry. I'm very
+		 * happy.
+		 */
+		if (THIS_KERNEL_VERSION < LINUX(4,2,0))
+			restore_rest(target->task, regs, &active_regs);
 		restore_rest(target->task, regs, &active_regs);
 		restore_segment_registers(target->task, regs);
 		break;
