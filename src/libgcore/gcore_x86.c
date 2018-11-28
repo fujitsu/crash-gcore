@@ -1713,7 +1713,8 @@ restore_regs_syscall_context(struct task_context *target,
 {
 	const int nr_syscall = (int)regs->orig_ax;
 
-	regs->sp = gxt->user_stack_pointer(target);
+	if (gxt->user_stack_pointer)
+		regs->sp = gxt->user_stack_pointer(target);
 
 	/*
 	 * entire registers are saved for special system calls.
@@ -1899,7 +1900,7 @@ static void gcore_x86_table_register_user_stack_pointer(void)
 	    MEMBER_EXISTS("thread_struct", "userrsp"))
 		gxt->user_stack_pointer = gcore_x86_64_user_stack_pointer_userrsp;
 
-	else
+	else if (MEMBER_EXISTS("thread_struct", "sp0"))
 		gxt->user_stack_pointer = gcore_x86_64_user_stack_pointer_pt_regs;
 }
 #endif
