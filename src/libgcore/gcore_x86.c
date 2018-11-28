@@ -2317,6 +2317,20 @@ ulong gcore_arch_get_gate_vma(void)
 	if (gcore_is_arch_32bit_emulation(CURRENT_CONTEXT()))
 		return 0UL;
 
+	if (symbol_exists("vsyscall_mode")) {
+		enum { ENUMERATE, NONE } vsyscall_mode;
+
+		readmem(symbol_value("vsyscall_mode"),
+			KVADDR,
+			&vsyscall_mode,
+			sizeof(vsyscall_mode),
+			"gcore_arch_get_gate_vma: vsyscall_mode",
+			gcore_verbose_error_handle());
+
+		if (vsyscall_mode == NONE)
+			return 0UL;
+	}
+
 	return symbol_value("gate_vma");
 #else
 	return 0UL;
