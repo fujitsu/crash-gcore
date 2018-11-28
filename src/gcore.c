@@ -489,6 +489,10 @@ static void gcore_offset_table_init(void)
 	GCORE_MEMBER_OFFSET_INIT(thread_struct_io_bitmap_ptr, "thread_struct", "io_bitmap_ptr");
 	GCORE_MEMBER_OFFSET_INIT(user_regset_n, "user_regset", "n");
 	GCORE_MEMBER_OFFSET_INIT(vm_area_struct_anon_vma, "vm_area_struct", "anon_vma");
+	GCORE_MEMBER_OFFSET_INIT(vm_area_struct_vm_ops, "vm_area_struct", "vm_ops");
+	GCORE_MEMBER_OFFSET_INIT(vm_area_struct_vm_private_data, "vm_area_struct", "vm_private_data");
+	GCORE_MEMBER_OFFSET_INIT(vm_operations_struct_name, "vm_operations_struct", "name");
+	GCORE_MEMBER_OFFSET_INIT(vm_special_mapping_name, "vm_special_mapping", "name");
 
 	if (symbol_exists("_cpu_pda"))
 		GCORE_MEMBER_OFFSET_INIT(x8664_pda_oldrsp, "x8664_pda", "oldrsp");
