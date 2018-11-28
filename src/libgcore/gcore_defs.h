@@ -1114,6 +1114,10 @@ struct gcore_offset_table
 	long vfp_hard_struct_fpregs;
 	long vfp_hard_struct_fpscr;
 	long vm_area_struct_anon_vma;
+	long vm_area_struct_vm_ops;
+	long vm_area_struct_vm_private_data;
+	long vm_operations_struct_name;
+	long vm_special_mapping_name;
 	long x8664_pda_oldrsp;
 };
 

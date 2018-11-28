@@ -18,10 +18,61 @@
 
 static ulong dumpfilter = GCORE_DUMPFILTER_DEFAULT;
 
+static int special_mapping_name(ulong vma)
+{
+	ulong vm_private_data, name_p;
+
+	readmem(vma + GCORE_OFFSET(vm_area_struct_vm_private_data),
+		KVADDR,
+		&vm_private_data,
+		sizeof(vm_private_data),
+		"always_dump_vma: vma->vm_private_data",
+		gcore_verbose_error_handle());
+
+	readmem(vm_private_data +
+		GCORE_OFFSET(vm_special_mapping_name),
+		KVADDR,
+		&name_p,
+		sizeof(name_p),
+		"always_dump_vma: ((struct vm_special_mapping *)vma->vm_private_data)->name",
+		gcore_verbose_error_handle());
+
+	return name_p ? TRUE : FALSE;
+}
+
 static int always_dump_vma(ulong vma)
 {
 	if (vma == gcore_arch_get_gate_vma())
 		return TRUE;
+
+	if (GCORE_VALID_MEMBER(vm_special_mapping_name)) {
+		ulong vm_ops, name;
+
+		readmem(vma + GCORE_OFFSET(vm_area_struct_vm_ops),
+			KVADDR,
+			&vm_ops,
+			sizeof(vm_ops),
+			"always_dump_vma: vma->vm_ops",
+			gcore_verbose_error_handle());
+
+		if (!vm_ops)
+			goto out;
+
+		readmem(vm_ops + GCORE_OFFSET(vm_operations_struct_name),
+			KVADDR,
+			&name,
+			sizeof(name),
+			"always_dump_vma: vma->vm_ops->name",
+			gcore_verbose_error_handle());
+
+		if (!name)
+			goto out;
+
+		if (name == symbol_value("special_mapping_name"))
+			return special_mapping_name(vma);
+	}
+out:
+
 	if (gcore_arch_vma_name(vma))
 		return TRUE;
 	return FALSE;
