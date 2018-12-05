@@ -501,6 +501,10 @@ static void gcore_offset_table_init(void)
 	GCORE_MEMBER_OFFSET_INIT(vfp_hard_struct_fpscr, "vfp_hard_struct", "fpscr");
 	GCORE_MEMBER_OFFSET_INIT(thread_struct_fpsimd_state, "thread_struct", "fpsimd_state");
 	GCORE_MEMBER_OFFSET_INIT(thread_struct_tp_value, "thread_struct", "tp_value");
+	if (GCORE_INVALID_MEMBER(thread_struct_fpsimd_state)) {
+		GCORE_ANON_MEMBER_OFFSET_INIT(thread_struct_fpsimd_state, "thread_struct", "uw.fpsimd_state");
+		GCORE_ANON_MEMBER_OFFSET_INIT(thread_struct_tp_value, "thread_struct", "uw.tp_value");
+	}
 }
 
 static void gcore_size_table_init(void)
