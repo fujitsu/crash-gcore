@@ -224,7 +224,7 @@ __task_pid_nr_ns(ulong task, enum pid_type type)
 		sizeof(ns), "__task_pid_nr_ns: ns", gcore_verbose_error_handle());
 
 	if (pid_alive(task)) {
-		ulong pids_type_pid;
+		ulong pids_type_pid, signal;
 
                 if (type != PIDTYPE_PID)
 			readmem(task + MEMBER_OFFSET("task_struct",
@@ -233,10 +233,34 @@ __task_pid_nr_ns(ulong task, enum pid_type type)
 				"__task_pid_nr_ns: group_leader",
 				gcore_verbose_error_handle());
 
-		readmem(task + OFFSET(task_struct_pids) + type * SIZE(pid_link)
-			+ OFFSET(pid_link_pid), KVADDR, &pids_type_pid,
-			sizeof(pids_type_pid),
-			"__task_pid_nr_ns: pids_type_pid", gcore_verbose_error_handle());
+		if (VALID_MEMBER(task_struct_pids))
+			readmem(task + OFFSET(task_struct_pids) +
+				type * SIZE(pid_link) + OFFSET(pid_link_pid),
+				KVADDR, &pids_type_pid,
+				sizeof(pids_type_pid),
+				"__task_pid_nr_ns: pids_type_pid",
+				gcore_verbose_error_handle());
+		else
+			if (type == PIDTYPE_PID)
+				readmem(task + GCORE_OFFSET(task_struct_thread_pid),
+					KVADDR, &pids_type_pid,
+					sizeof(pids_type_pid),
+					"__task_pid_nr_ns: pids_type_pid",
+					gcore_verbose_error_handle());
+			else {
+				readmem(task + OFFSET(task_struct_signal),
+					KVADDR, &signal,
+					sizeof(signal),
+					"__task_pid_nr_ns: signal",
+					gcore_verbose_error_handle());
+
+				readmem(signal + GCORE_OFFSET(signal_struct_pids) +
+					type * sizeof(void *),
+					KVADDR, &pids_type_pid,
+					sizeof(pids_type_pid),
+					"__task_pid_nr_ns: pids_type_pid",
+					gcore_verbose_error_handle());
+			}
 
 		nr = pid_nr_ns(pids_type_pid, ns);
         }
@@ -420,9 +444,17 @@ pid_alive(ulong task)
 {
 	pid_t pid;
 
-	readmem(task + OFFSET(task_struct_pids) + PIDTYPE_PID * SIZE(pid_link)
-		+ OFFSET(pid_link_pid), KVADDR, &pid, sizeof(pid), "pid_alive",
-		gcore_verbose_error_handle());
+	if (VALID_MEMBER(task_struct_pids))
+		readmem(task + OFFSET(task_struct_pids) +
+			PIDTYPE_PID * SIZE(pid_link) + OFFSET(pid_link_pid),
+			KVADDR, &pid, sizeof(pid),
+			"pid_alive",
+			gcore_verbose_error_handle());
+	else
+		readmem(task + GCORE_OFFSET(task_struct_thread_pid),
+			KVADDR, &pid, sizeof(pid),
+			"task_struct.thread_pid",
+			gcore_verbose_error_handle());
 
         return !!pid;
 }

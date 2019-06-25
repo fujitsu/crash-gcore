@@ -1077,6 +1077,7 @@ struct gcore_offset_table
 	long sched_entity_sum_exec_runtime;
 	long signal_struct_cutime;
 	long signal_struct_pgrp;
+	long signal_struct_pids;
 	long signal_struct_session;
 	long signal_struct_stime;
 	long signal_struct_sum_sched_runtime;
@@ -1090,6 +1091,7 @@ struct gcore_offset_table
 	long task_struct_static_prio;
 	long task_struct_uid;
 	long task_struct_used_math;
+	long task_struct_thread_pid;
 	long thread_info_status;
 	long thread_info_fpstate;
 	long thread_info_vfpstate;
