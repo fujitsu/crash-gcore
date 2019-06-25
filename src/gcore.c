@@ -505,6 +505,10 @@ static void gcore_offset_table_init(void)
 		GCORE_ANON_MEMBER_OFFSET_INIT(thread_struct_fpsimd_state, "thread_struct", "uw.fpsimd_state");
 		GCORE_ANON_MEMBER_OFFSET_INIT(thread_struct_tp_value, "thread_struct", "uw.tp_value");
 	}
+	if (MEMBER_EXISTS("task_struct", "thread_pid"))
+		GCORE_MEMBER_OFFSET_INIT(task_struct_thread_pid, "task_struct", "thread_pid");
+	if (MEMBER_EXISTS("signal_struct", "pids"))
+		GCORE_MEMBER_OFFSET_INIT(signal_struct_pids, "signal_struct", "pids");
 }
 
 static void gcore_size_table_init(void)
