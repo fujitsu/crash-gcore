@@ -841,18 +841,35 @@ ioperm_active(struct task_context *target,
 {
 	ulong io_bitmap_ptr;
 	unsigned int io_bitmap_max;
+	ulong io_bitmap;
 
-	readmem(target->task + OFFSET(task_struct_thread) +
-		GCORE_OFFSET(thread_struct_io_bitmap_max), KVADDR,
-		&io_bitmap_max, sizeof(io_bitmap_max),
-		"ioperm_active: io_bitmap_max", gcore_verbose_error_handle());
-
-	readmem(target->task + OFFSET(task_struct_thread) +
-		GCORE_OFFSET(thread_struct_io_bitmap_ptr), KVADDR,
-		&io_bitmap_ptr, sizeof(io_bitmap_ptr),
-		"ioperm_get: io_bitmap_ptr", gcore_verbose_error_handle());
-
-	return io_bitmap_max && io_bitmap_ptr;
+	if (MEMBER_EXISTS("thread_struct", "io_bitmap_max")) {
+		readmem(target->task + OFFSET(task_struct_thread) +
+			GCORE_OFFSET(thread_struct_io_bitmap_max), KVADDR,
+			&io_bitmap_max, sizeof(io_bitmap_max),
+			"ioperm_active: io_bitmap_max",
+			gcore_verbose_error_handle());
+		readmem(target->task + OFFSET(task_struct_thread) +
+			GCORE_OFFSET(thread_struct_io_bitmap_ptr), KVADDR,
+			&io_bitmap_ptr, sizeof(io_bitmap_ptr),
+			"ioperm_get: io_bitmap_ptr",
+			gcore_verbose_error_handle());
+		return io_bitmap_max && io_bitmap_ptr;
+	} else {
+		readmem(target->task + OFFSET(task_struct_thread) +
+			MEMBER_OFFSET("thread_struct", "io_bitmap"), KVADDR,
+			&io_bitmap, sizeof(io_bitmap),
+			"ioperm_active: io_bitmap",
+			gcore_verbose_error_handle());
+		if (!io_bitmap)
+			return 0;
+		readmem(io_bitmap + MEMBER_OFFSET("io_bitmap", "max"),
+			KVADDR,
+			&io_bitmap_max, sizeof(io_bitmap_max),
+			"ioperm_get: io_bitmap->max",
+			gcore_verbose_error_handle());
+		return divideup(io_bitmap_max, regset->size);
+	}
 }
 
 static int ioperm_get(struct task_context *target,
@@ -861,15 +878,25 @@ static int ioperm_get(struct task_context *target,
 		      void *buf)
 {
 	ulong io_bitmap_ptr;
+	ulong io_bitmap;
 
-	readmem(target->task + OFFSET(task_struct_thread) +
-		GCORE_OFFSET(thread_struct_io_bitmap_ptr), KVADDR,
-		&io_bitmap_ptr, sizeof(io_bitmap_ptr),
-		"ioperm_get: io_bitmap_ptr", gcore_verbose_error_handle());
-
+	if (MEMBER_EXISTS("thread_struct", "io_bitmap_max")) {
+		readmem(target->task + OFFSET(task_struct_thread) +
+			GCORE_OFFSET(thread_struct_io_bitmap_ptr), KVADDR,
+			&io_bitmap_ptr, sizeof(io_bitmap_ptr),
+			"ioperm_get: io_bitmap_ptr", gcore_verbose_error_handle());
+	} else {
+		readmem(target->task + OFFSET(task_struct_thread) +
+			MEMBER_OFFSET("thread_struct", "io_bitmap"), KVADDR,
+			&io_bitmap, sizeof(io_bitmap),
+			"ioperm_active: io_bitmap",
+			gcore_verbose_error_handle());
+		if (!io_bitmap)
+			return -1;
+		io_bitmap_ptr = io_bitmap + MEMBER_OFFSET("io_bitmap", "bitmap");
+	}
 	readmem(io_bitmap_ptr, KVADDR, buf, size, "ioperm_get: copy IO bitmap",
 		gcore_verbose_error_handle());
-
 	return 0;
 }
 

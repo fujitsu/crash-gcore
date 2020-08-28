@@ -168,6 +168,11 @@
 
 #define PAGE_ALIGN(X) roundup(X, ELF_EXEC_PAGESIZE)
 
+#ifdef divideup
+#undef divideup
+#endif
+#define divideup(x, y)  (((x) + ((y) - 1)) / (y))
+
 /*
  * gcore_regset.c
  *

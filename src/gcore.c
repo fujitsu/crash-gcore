@@ -487,6 +487,10 @@ static void gcore_offset_table_init(void)
 		GCORE_MEMBER_OFFSET_INIT(thread_struct_xstate, "thread_struct", "i387");
 	GCORE_MEMBER_OFFSET_INIT(thread_struct_io_bitmap_max, "thread_struct", "io_bitmap_max");
 	GCORE_MEMBER_OFFSET_INIT(thread_struct_io_bitmap_ptr, "thread_struct", "io_bitmap_ptr");
+	if (GCORE_INVALID_MEMBER(thread_struct_io_bitmap_max)) {
+		GCORE_MEMBER_OFFSET_INIT(thread_struct_io_bitmap_max, "io_bitmap", "max");
+		GCORE_MEMBER_OFFSET_INIT(thread_struct_io_bitmap_ptr, "io_bitmap", "bitmap");
+	}
 	GCORE_MEMBER_OFFSET_INIT(user_regset_n, "user_regset", "n");
 	GCORE_MEMBER_OFFSET_INIT(vm_area_struct_anon_vma, "vm_area_struct", "anon_vma");
 	GCORE_MEMBER_OFFSET_INIT(vm_area_struct_vm_ops, "vm_area_struct", "vm_ops");
