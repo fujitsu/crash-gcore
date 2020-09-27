@@ -372,6 +372,7 @@ static void gcore_offset_table_init(void)
 	GCORE_MEMBER_OFFSET_INIT(mm_struct_map_count, "mm_struct", "map_count");
 	GCORE_MEMBER_OFFSET_INIT(mm_struct_reserved_vm, "mm_struct", "reserved_vm");
 	GCORE_MEMBER_OFFSET_INIT(mm_struct_saved_auxv, "mm_struct", "saved_auxv");
+	GCORE_MEMBER_OFFSET_INIT(mm_struct_saved_files, "mm_struct", "saved_files");
 	GCORE_MEMBER_OFFSET_INIT(mm_struct_context, "mm_struct", "context");
 	GCORE_MEMBER_OFFSET_INIT(pid_level, "pid", "level");
 	GCORE_MEMBER_OFFSET_INIT(pid_namespace_level, "pid_namespace", "level");
@@ -520,6 +521,7 @@ static void gcore_size_table_init(void)
 	GCORE_STRUCT_SIZE_INIT(i387_union, "i387_union");
 	GCORE_STRUCT_SIZE_INIT(mm_context_t, "mm_context_t");
 	GCORE_MEMBER_SIZE_INIT(mm_struct_saved_auxv, "mm_struct", "saved_auxv");
+	GCORE_MEMBER_SIZE_INIT(mm_struct_saved_files, "mm_struct", "saved_files");
 	GCORE_MEMBER_SIZE_INIT(thread_struct_ds, "thread_struct", "ds");
 	GCORE_MEMBER_SIZE_INIT(thread_struct_es, "thread_struct", "es");
 	if (MEMBER_EXISTS("thread_struct", "fs"))
