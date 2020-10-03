@@ -1294,4 +1294,7 @@ extern void gcore_default_regsets_init(void);
 
 #define VDSO_HIGH_BASE 0xffffe000U
 
+extern ulong readswap(ulonglong pte_val, char *buf, ulong len, ulonglong vaddr);
+extern int gcore_readmem_user(ulong addr, void *buf, long size, char *type);
+
 #endif /* GCORE_DEFS_H_ */

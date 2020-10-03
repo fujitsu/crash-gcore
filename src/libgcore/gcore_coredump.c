@@ -66,6 +66,59 @@ static inline int thread_group_leader(ulong task);
 
 static int uvtop_quiet(ulong vaddr, physaddr_t *paddr);
 
+ulong __attribute__((weak))
+readswap(ulonglong pte_val, char *buf, ulong len, ulonglong vaddr)
+{
+	return 0;
+}
+
+int gcore_readmem_user(ulong addr, void *buf, long size, char *type)
+{
+	ulong paddr, cnt;
+	char *bufptr = buf;
+
+	while (size > 0) {
+		if (!uvtop_quiet(addr, &paddr)) {
+			if (!paddr)
+				return FALSE;
+
+			cnt = PAGESIZE() - PAGEOFFSET(addr);
+			if (cnt > size)
+				cnt = size;
+
+			cnt = readswap(paddr,
+				       bufptr,
+				       cnt,
+				       addr);
+			if (cnt) {
+				bufptr += cnt;
+				addr += cnt;
+				size -= cnt;
+				continue;
+			}
+
+			return FALSE;
+		}
+
+		cnt = PAGESIZE() - PAGEOFFSET(paddr);
+		if (cnt > size)
+			cnt = size;
+
+		readmem(paddr,
+			PHYSADDR,
+			bufptr,
+			cnt,
+			type,
+			gcore_verbose_error_handle());
+
+		bufptr += cnt;
+		addr += cnt;
+		size -= cnt;
+	}
+
+	return TRUE;
+}
+
 void gcore_coredump(void)
 {
 	struct elf_note_info *info;
