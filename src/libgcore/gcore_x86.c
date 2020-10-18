@@ -2423,18 +2423,20 @@ char *gcore_arch_vma_name(ulong vma)
 		gcore_verbose_error_handle());
 
 	/*
-	 * In a series of 2.6.18 kernels such as RHEL5.x kernels,
-	 * starting address of vdso page is not assigned to
-	 * vma->vm_mm->context.vdso. In stead, we see assigned virtual
-	 * address which is defined as constant.
+	 * The commit "x86_64: Add vDSO for x86-64 with
+	 * gettimeofday/clock_gettime/getcpu"
+	 * (2aae950b21e4bc789d1fc6668faf67e8748300b7) adds vDSO
+	 * support. Since then, the starting address of vDSO mapping
+	 * is decided at the start of process execution and assigned
+	 * at mm_context_t::vdso.
 	 */
-	if (gcore_is_arch_32bit_emulation(CURRENT_CONTEXT())) {
-		vdso = VDSO_HIGH_BASE;
-	} else {
+	if (GCORE_OFFSET(mm_context_t_vdso) >= 0) {
 		readmem(mm + GCORE_OFFSET(mm_struct_context) +
 			GCORE_OFFSET(mm_context_t_vdso), KVADDR, &vdso,
 			sizeof(vdso), "gcore_arch_vma_name: mm->context.vdso",
 			gcore_verbose_error_handle());
+	} else {
+		vdso = VDSO_HIGH_BASE;
 	}
 
 	if (mm && vm_start == vdso)
