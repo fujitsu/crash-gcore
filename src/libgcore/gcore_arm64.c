@@ -28,7 +28,8 @@ static int gpr_get(struct task_context *target,
 
 	BZERO(regs, sizeof(*regs));
 
-	readmem(machdep->get_stacktop(target->task) - 16 - SIZE(pt_regs), KVADDR,
+	readmem(machdep->get_stacktop(target->task) -
+		machdep->machspec->user_eframe_offset - SIZE(pt_regs), KVADDR,
 		regs, sizeof(struct user_pt_regs), "gpr_get: user_pt_regs",
 		gcore_verbose_error_handle());
 
@@ -124,7 +125,8 @@ static int compat_gpr_get(struct task_context *target,
 	BZERO(&pt_regs, sizeof(pt_regs));
 	BZERO(regs, sizeof(*regs));
 
-	readmem(machdep->get_stacktop(target->task) - 16 - SIZE(pt_regs), KVADDR,
+	readmem(machdep->get_stacktop(target->task) -
+		machdep->machspec->user_eframe_offset - SIZE(pt_regs), KVADDR,
 		&pt_regs, sizeof(struct pt_regs), "compat_gpr_get: pt_regs",
 		gcore_verbose_error_handle());
 
