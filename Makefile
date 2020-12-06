@@ -1,11 +1,13 @@
 
 .PHONY: check_crash all default tarball test
 
+CFLAGS="-g -O0"
+
 all: test
 
 default: check_crash
-	@cp -r ./src/* ${CRASH}/extensions/
-	@(cd ${CRASH}; make CFLAGS="-g -O0"; make CFLAGS="-g -O0" extensions)
+	@cp ${CRASH}/defs.h src
+	@make -C src -f ./gcore.mk CFLAGS=${CFLAGS}
 
 test: check_crash
 	@cp -r ./test/* ${CRASH}/extensions/
@@ -27,7 +29,6 @@ ifndef CRASH
 endif
 
 clean:
+	@(rm -f src/defs.h)
+	@(make -C src -f gcore.mk clean)
 	@(rm -f crash-gcore-command-*.tar.gz)
-ifdef CRASH
-	@(cd ${CRASH}; make do_clean)
-endif
