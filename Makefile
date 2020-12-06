@@ -1,5 +1,5 @@
 
-.PHONY: check_crash all default tarball test
+.PHONY: check_crash all default tarball
 
 ifneq ($(TARGET),)
 TARGET_OPTION=TARGET="${TARGET}"
@@ -7,15 +7,9 @@ endif
 
 CFLAGS="-g -O0"
 
-all: test
-
 default: check_crash
 	@cp ${CRASH}/defs.h src
 	@make -C src -f ./gcore.mk CFLAGS=${CFLAGS} ${TARGET_OPTION}
-
-test: check_crash
-	@cp -r ./test/* ${CRASH}/extensions/
-	make default
 
 gcore_version: src/gcore.mk
 GCORE_VERSION=$(shell awk -F = -e '/^VERSION/ {print $$2}' src/gcore.mk)

@@ -1,4 +1,0 @@
-extend gcore.so
-extend test-gcore.so
-test_gcore
-quit
