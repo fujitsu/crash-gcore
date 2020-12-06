@@ -119,5 +119,5 @@ gcore.so: gcore.c $(INCDIR)/defs.h
 	gcc $(RPM_OPT_FLAGS) $(CFLAGS) $(TARGET_CFLAGS) $(COMMON_CFLAGS) $(ARCH_CFLAGS) -c -o $@ $<
 
 clean:
-	find ./libgcore -regex ".+\(o\|so\)" -exec rm -f {} \;
-
+	rm -f gcore.so
+	rm -f libgcore/gcore_*.o
