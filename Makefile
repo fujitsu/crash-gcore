@@ -1,13 +1,17 @@
 
 .PHONY: check_crash all default tarball test
 
+ifneq ($(TARGET),)
+TARGET_OPTION=TARGET="${TARGET}"
+endif
+
 CFLAGS="-g -O0"
 
 all: test
 
 default: check_crash
 	@cp ${CRASH}/defs.h src
-	@make -C src -f ./gcore.mk CFLAGS=${CFLAGS}
+	@make -C src -f ./gcore.mk CFLAGS=${CFLAGS} ${TARGET_OPTION}
 
 test: check_crash
 	@cp -r ./test/* ${CRASH}/extensions/
