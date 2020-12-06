@@ -17,8 +17,8 @@ test: check_crash
 	@cp -r ./test/* ${CRASH}/extensions/
 	make default
 
-gcore_version: ./src/gcore.mk
-GCORE_VERSION := $(shell egrep "VERSION=[0-9]\.[0-9]" ./src/gcore.mk | head -n 1 | cut -d = -f 2)
+gcore_version: src/gcore.mk
+GCORE_VERSION=$(shell awk -F = -e '/^VERSION/ {print $$2}' src/gcore.mk)
 
 tarball: gcore_version
 	@(cp -r ./src ./crash-gcore-command-${GCORE_VERSION}; \
