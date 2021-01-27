@@ -112,7 +112,7 @@ gcore.so: gcore.c $(INCDIR)/defs.h
 		echo "gcore: architecture not supported"; \
 	else \
 		make -f gcore.mk $(GCORE_OFILES) && \
-		gcc $(RPM_OPT_FLAGS) $(CFLAGS) $(TARGET_CFLAGS) $(COMMON_CFLAGS) $(ARCH_CFLAGS) -nostartfiles -shared -rdynamic $(GCORE_OFILES) -o $@ $< ; \
+		gcc $(RPM_OPT_FLAGS) $(CFLAGS) $(TARGET_CFLAGS) $(COMMON_CFLAGS) $(ARCH_CFLAGS) -nostartfiles -shared -rdynamic $(GCORE_OFILES) -Wl,-soname,$@ -o $@ $< ; \
 	fi;
 
 %.o: %.c $(INCDIR)/defs.h
