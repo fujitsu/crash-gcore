@@ -725,6 +725,11 @@ xstateregs_get(struct task_context *target,
 #define __USER_DS 0x2b
 #define __USER_CS 0x33
 
+static inline int user_64bit_mode(struct user_regs_struct *regs)
+{
+	return regs->cs == __USER_CS;
+}
+
 /*
  * thread information flags
  * - these are process state flags that various assembly files
@@ -1707,7 +1712,7 @@ check_kernel_entry(struct task_context *target, struct user_regs_struct *regs)
 		physaddr_t paddr;
 		unsigned char opcode[GCORE_SYSCALL_OPCODE_BYTES];
 
-		if (!gcore_is_arch_32bit_emulation(target))
+		if (user_64bit_mode(regs))
 			return GCORE_KERNEL_ENTRY_SYSCALL;
 
 		if (!uvtop(target, regs->ip - sizeof(opcode), &paddr, FALSE))
@@ -2352,31 +2357,17 @@ task_user_regset_view(void)
 #endif
 }
 
-/**
- * If a given task @tc is running in IA32e compatibility mode on
- * X86_64, return TRUE. Otherwise, return FALSE. On X86_32, always
- * return FALSE.
- *
- * Assume all tasks in IA32e comp mode sets TIF_IA32 in thread_info
- * flags.
- */
-
-enum gcore_x86_thread_info_flag
-{
-	TIF_IA32 = 17 /* 32bit process */
-};
-
 int gcore_is_arch_32bit_emulation(struct task_context *tc)
 {
 #ifdef X86_64
-	uint32_t flags;
-	char *thread_info_buf;
+	struct user_regs_struct regs;
 
-	thread_info_buf = fill_thread_info(tc->thread_info);
-	flags = ULONG(thread_info_buf + OFFSET(thread_info_flags));
+	(void) genregs_get(tc,
+			   NULL,
+			   sizeof(struct user_regs_struct),
+			   &regs);
 
-	if (flags & (1UL << TIF_IA32))
-		return TRUE;
+	return !user_64bit_mode(&regs);
 #endif
 	return FALSE;
 }
