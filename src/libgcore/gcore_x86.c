@@ -2450,15 +2450,35 @@ char *gcore_arch_vma_name(ulong vma)
  */
 int gcore_arch_vsyscall_has_vm_alwaysdump_flag(void)
 {
-	char *vma_cache;
-	ulong target_vma, gate_vma, vm_flags;
+	char *mm_cache, *vma_cache;
+	ulong target_vma, gate_vma = 0, vm_flags;
+	struct task_context *tc;
+	int i;
 
 	target_vma = 0UL;
 
-	if ((gate_vma = gcore_arch_get_gate_vma()))
-		target_vma = gate_vma;
-	else {
+	/*
+	 * Look at gate_vma on x86_32 since gate_vma.vm_flags in
+	 * x86_32 had VM_ALWAYSDUMP; while the one in x86_64 not.
+	 */
+	if (machine_type("X86"))
+		gate_vma = symbol_value("gate_vma");
+
+	tc = FIRST_CONTEXT();
+	for (i = 0; i < RUNNING_TASKS(); i++, tc++) {
 		ulong vma, index, mmap = 0UL;
+
+		if (is_kernel_thread(tc->task))
+			continue;
+
+		if (is_task_active(tc->task))
+			continue;
+
+		mm_cache = fill_mm_struct(task_mm(tc->task, TRUE));
+		if (!mm_cache)
+			continue;
+
+		mmap = ULONG(mm_cache + OFFSET(mm_struct_mmap));
 
 		FOR_EACH_VMA_OBJECT(vma, index, mmap, gate_vma) {
 			if (gcore_arch_vma_name(vma)) {
