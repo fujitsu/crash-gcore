@@ -273,10 +273,17 @@ void gcore_coredump(void)
 		for (addr = vm_start; addr < end; addr += PAGE_SIZE) {
 			physaddr_t paddr;
 
-			if (uvtop_quiet(addr, &paddr)) {
-				readmem(paddr, PHYSADDR, buffer, PAGE_SIZE,
-					"readmem vma list",
-					gcore_verbose_error_handle());
+			if (uvtop_quiet(addr, &paddr)
+			    ? readmem(paddr,
+				      PHYSADDR,
+				      buffer,
+				      PAGE_SIZE,
+				      "readmem vma list",
+				      gcore_verbose_error_handle())
+			    : paddr && readswap(paddr,
+						buffer,
+						PAGE_SIZE,
+						addr) == PAGE_SIZE) {
 				if (fwrite(buffer, PAGE_SIZE, 1, gcore->fp)
 				    != 1)
 					error(FATAL, "%s: write: %s\n",
@@ -353,7 +360,6 @@ fill_psinfo_note(struct elf_note_info *info, struct task_context *tc,
 {
 	struct elf_prpsinfo *psinfo;
 	ulong arg_start, arg_end, parent;
-	physaddr_t paddr;
 	long state, uid, gid;
         unsigned int i, len;
 	char *mm_cache;
@@ -373,12 +379,11 @@ fill_psinfo_note(struct elf_note_info *info, struct task_context *tc,
         len = arg_end - arg_start;
         if (len >= ELF_PRARGSZ)
                 len = ELF_PRARGSZ-1;
-	if (uvtop(CURRENT_CONTEXT(), arg_start, &paddr, FALSE)) {
-		readmem(paddr, PHYSADDR, &psinfo->pr_psargs, len,
-			"fill_psinfo: pr_psargs", gcore_verbose_error_handle());
-	} else {
+	if (!gcore_readmem_user(arg_start,
+				&psinfo->pr_psargs,
+				len,
+				"fill_psinfo: pr_psargs"))
 		pagefaultf("page fault at %lx\n", arg_start);
-	}
         for(i = 0; i < len; i++)
                 if (psinfo->pr_psargs[i] == 0)
                         psinfo->pr_psargs[i] = ' ';
@@ -428,7 +433,6 @@ compat_fill_psinfo_note(struct elf_note_info *info,
 {
 	struct compat_elf_prpsinfo *psinfo;
 	ulong arg_start, arg_end, parent;
-	physaddr_t paddr;
 	long state, uid, gid;
         unsigned int i, len;
 	char *mm_cache;
@@ -447,12 +451,11 @@ compat_fill_psinfo_note(struct elf_note_info *info,
         len = arg_end - arg_start;
         if (len >= ELF_PRARGSZ)
                 len = ELF_PRARGSZ-1;
-	if (uvtop(CURRENT_CONTEXT(), arg_start, &paddr, FALSE)) {
-		readmem(paddr, PHYSADDR, &psinfo->pr_psargs, len,
-			"fill_psinfo: pr_psargs", gcore_verbose_error_handle());
-	} else {
+	if (!gcore_readmem_user(arg_start,
+				&psinfo->pr_psargs,
+				len,
+				"fill_psinfo: pr_psargs"))
 		pagefaultf("page fault at %lx\n", arg_start);
-	}
         for(i = 0; i < len; i++)
                 if (psinfo->pr_psargs[i] == 0)
                         psinfo->pr_psargs[i] = ' ';
