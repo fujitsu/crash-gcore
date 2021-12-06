@@ -72,51 +72,52 @@ readswap(ulonglong pte_val, char *buf, ulong len, ulonglong vaddr)
 	return 0;
 }
 
-int gcore_readmem_user(ulong addr, void *buf, long size, char *type)
+void gcore_readmem_user(ulong addr, void *buf, long size, char *type)
 {
 	ulong paddr, cnt;
 	char *bufptr = buf;
 
 	while (size > 0) {
 		if (!uvtop_quiet(addr, &paddr)) {
-			if (!paddr)
-				return FALSE;
 
 			cnt = PAGESIZE() - PAGEOFFSET(addr);
 			if (cnt > size)
 				cnt = size;
 
-			cnt = readswap(paddr,
-				       bufptr,
-				       cnt,
-				       addr);
-			if (cnt) {
-				bufptr += cnt;
-				addr += cnt;
-				size -= cnt;
-				continue;
+			if (!(paddr &&
+			      (cnt = readswap(paddr,
+					      bufptr,
+					      cnt,
+					      addr)))) {
+				memset(bufptr, ' ', cnt);
+				pagefaultf("page fault at %lx\n", addr);
 			}
 
-			return FALSE;
+			bufptr += cnt;
+			addr += cnt;
+			size -= cnt;
+
+			continue;
 		}
 
 		cnt = PAGESIZE() - PAGEOFFSET(paddr);
 		if (cnt > size)
 			cnt = size;
 
-		readmem(paddr,
-			PHYSADDR,
-			bufptr,
-			cnt,
-			type,
-			gcore_verbose_error_handle());
+		if (!readmem(paddr,
+			     PHYSADDR,
+			     bufptr,
+			     cnt,
+			     type,
+			     gcore_verbose_error_handle_user())) {
+			memset(bufptr, ' ', cnt);
+			pagefaultf("page fault at %lx\n", addr);
+		}
 
 		bufptr += cnt;
 		addr += cnt;
 		size -= cnt;
 	}
-
-	return TRUE;
 }
 
 void gcore_coredump(void)
@@ -279,7 +280,7 @@ void gcore_coredump(void)
 				      buffer,
 				      PAGE_SIZE,
 				      "readmem vma list",
-				      gcore_verbose_error_handle())
+				      gcore_verbose_error_handle_user())
 			    : paddr && readswap(paddr,
 						buffer,
 						PAGE_SIZE,
@@ -379,11 +380,10 @@ fill_psinfo_note(struct elf_note_info *info, struct task_context *tc,
         len = arg_end - arg_start;
         if (len >= ELF_PRARGSZ)
                 len = ELF_PRARGSZ-1;
-	if (!gcore_readmem_user(arg_start,
-				&psinfo->pr_psargs,
-				len,
-				"fill_psinfo: pr_psargs"))
-		pagefaultf("page fault at %lx\n", arg_start);
+	gcore_readmem_user(arg_start,
+			   &psinfo->pr_psargs,
+			   len,
+			   "fill_psinfo: pr_psargs");
         for(i = 0; i < len; i++)
                 if (psinfo->pr_psargs[i] == 0)
                         psinfo->pr_psargs[i] = ' ';
@@ -451,11 +451,10 @@ compat_fill_psinfo_note(struct elf_note_info *info,
         len = arg_end - arg_start;
         if (len >= ELF_PRARGSZ)
                 len = ELF_PRARGSZ-1;
-	if (!gcore_readmem_user(arg_start,
-				&psinfo->pr_psargs,
-				len,
-				"fill_psinfo: pr_psargs"))
-		pagefaultf("page fault at %lx\n", arg_start);
+	gcore_readmem_user(arg_start,
+			   &psinfo->pr_psargs,
+			   len,
+			   "fill_psinfo: pr_psargs");
         for(i = 0; i < len; i++)
                 if (psinfo->pr_psargs[i] == 0)
                         psinfo->pr_psargs[i] = ' ';

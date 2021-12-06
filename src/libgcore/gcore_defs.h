@@ -372,6 +372,7 @@ extern ulong gcore_dumpfilter_vma_dump_size(ulong vma);
 			   VERBOSE_PAGEFAULT)
 
 #define VERBOSE_DEFAULT_ERROR_HANDLE (FAULT_ON_ERROR | QUIET)
+#define VERBOSE_DEFAULT_ERROR_HANDLE_USER (RETURN_ON_ERROR | QUIET)
 
 /*
  * Verbose flag is set each time gcore is executed. The same verbose
@@ -405,6 +406,14 @@ extern ulong gcore_verbose_get(void);
  * Return the current error_handle contained in the global data.
  */
 extern ulong gcore_verbose_error_handle(void);
+
+/**
+ * gcore_verbose_error_handle_user() - get error handle for user-space memory
+ *
+ * Return the current error_handle for user-space memory contained in
+ * the global data.
+ */
+extern ulong gcore_verbose_error_handle_user(void);
 
 /*
  * Helper printing functions for respective verbose flags
@@ -1295,6 +1304,6 @@ extern void gcore_default_regsets_init(void);
 #define VDSO_HIGH_BASE 0xffffe000U
 
 extern ulong readswap(ulonglong pte_val, char *buf, ulong len, ulonglong vaddr);
-extern int gcore_readmem_user(ulong addr, void *buf, long size, char *type);
+extern void gcore_readmem_user(ulong addr, void *buf, long size, char *type);
 
 #endif /* GCORE_DEFS_H_ */

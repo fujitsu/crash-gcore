@@ -1714,11 +1714,10 @@ check_kernel_entry(struct task_context *target, struct user_regs_struct *regs)
 		if (user_64bit_mode(regs))
 			return GCORE_KERNEL_ENTRY_SYSCALL;
 
-		if (!gcore_readmem_user(regs->ip - sizeof(opcode),
-					opcode,
-					sizeof(opcode),
-					"check_context: opcode"))
-			return GCORE_KERNEL_ENTRY_IA32_UNKNOWN;
+		gcore_readmem_user(regs->ip - sizeof(opcode),
+				   opcode,
+				   sizeof(opcode),
+				   "check_context: opcode");
 
 		if (memcmp(opcode, GCORE_OPCODE_SYSCALL, sizeof(opcode)) == 0)
 			return GCORE_KERNEL_ENTRY_SYSCALL32;
@@ -1726,14 +1725,13 @@ check_kernel_entry(struct task_context *target, struct user_regs_struct *regs)
 		if (memcmp(opcode, GCORE_OPCODE_INT80, sizeof(opcode)) == 0)
 			return GCORE_KERNEL_ENTRY_INT80;
 
-		if (!gcore_readmem_user(regs->ip
-					- 2 /* jmp enter_kernel or int 0x80 */
-					- 7 /* nop alignment bytes */
-					- sizeof(opcode), /* sysenter */
-					opcode,
-					sizeof(opcode),
-					"check_context: opcode 2"))
-			return GCORE_KERNEL_ENTRY_IA32_UNKNOWN;
+		gcore_readmem_user(regs->ip
+				   - 2 /* jmp enter_kernel or int 0x80 */
+				   - 7 /* nop alignment bytes */
+				   - sizeof(opcode), /* sysenter */
+				   opcode,
+				   sizeof(opcode),
+				   "check_context: opcode 2");
 
 		if (memcmp(opcode, GCORE_OPCODE_SYSENTER, sizeof(opcode)) == 0)
 			return GCORE_KERNEL_ENTRY_SYSENTER32;

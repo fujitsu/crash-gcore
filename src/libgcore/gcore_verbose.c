@@ -20,6 +20,7 @@ struct gcore_verbose_data
 {
 	ulong level;
 	ulong error_handle;
+	ulong error_handle_user;
 };
 
 static struct gcore_verbose_data gcore_verbose_data = { 0 };
@@ -45,6 +46,7 @@ void gcore_verbose_set_default(void)
 {
 	gvd->level = VERBOSE_DEFAULT_LEVEL;
 	gvd->error_handle = VERBOSE_DEFAULT_ERROR_HANDLE;
+	gvd->error_handle_user = VERBOSE_DEFAULT_ERROR_HANDLE_USER;
 }
 
 /**
@@ -74,10 +76,13 @@ int gcore_verbose_set(ulong level)
 	if (level > VERBOSE_MAX_LEVEL)
 		return FALSE;
 	gvd->level = level;
-	if (gvd->level & VERBOSE_NONQUIET)
+	if (gvd->level & VERBOSE_NONQUIET) {
 		gvd->error_handle &= ~QUIET;
-	else
+		gvd->error_handle_user &= ~QUIET;
+	} else {
 		gvd->error_handle |= QUIET;
+		gvd->error_handle_user |= QUIET;
+	}
 	return TRUE;
 }
 
@@ -89,4 +94,9 @@ ulong gcore_verbose_get(void)
 ulong gcore_verbose_error_handle(void)
 {
 	return gvd->error_handle;
+}
+
+ulong gcore_verbose_error_handle_user(void)
+{
+	return gvd->error_handle_user;
 }
