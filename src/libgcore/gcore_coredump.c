@@ -18,6 +18,10 @@
 
 static struct elf_note_info *elf_note_info_init(void);
 
+static void get_auxv_size_addr(struct task_context *tc,
+			       size_t *size,
+			       ulong *addr);
+
 static void fill_prstatus_note(struct elf_note_info *info,
 			       struct task_context *tc,
 			       struct memelfnote *memnote);
@@ -923,18 +927,49 @@ compat_fill_prstatus_note(struct elf_note_info *info,
 
 #endif /* GCORE_ARCH_COMPAT */
 
+static void get_auxv_size_addr(struct task_context *tc,
+			       size_t *psize,
+			       ulong *paddr)
+{
+	size_t size;
+	ulong addr;
+
+	if (MEMBER_EXISTS("mm_struct", "rh_reserved_saved_auxv")) {
+		ulong mm_rh;
+
+		size = MEMBER_SIZE("mm_struct_rh", "saved_auxv");
+		readmem(task_mm(tc->task, FALSE) + MEMBER_OFFSET("mm_struct", "mm_rh"),
+			KVADDR,
+			&mm_rh,
+			sizeof(mm_rh),
+			"mm_struct mm_rh",
+			gcore_verbose_error_handle());
+		addr = mm_rh + MEMBER_OFFSET("mm_struct_rh", "saved_auxv");
+	} else {
+		size = MEMBER_SIZE("mm_struct", "saved_auxv");
+		addr = task_mm(tc->task, FALSE) +
+			MEMBER_OFFSET("mm_struct", "saved_auxv");
+	}
+
+	*psize = size;
+	*paddr = addr;
+}
+
 static void
 fill_auxv_note(struct elf_note_info *info, struct task_context *tc,
 	       struct memelfnote *memnote)
 {
 	ulong *auxv;
+	ulong addr;
+	size_t size;
 	int i;
 
-	auxv = (ulong *)GETBUF(MEMBER_SIZE("mm_struct", "saved_auxv"));
+	get_auxv_size_addr(tc, &size, &addr);
 
-	readmem(task_mm(tc->task, FALSE) +
-		MEMBER_OFFSET("mm_struct", "saved_auxv"), KVADDR, auxv,
-		MEMBER_SIZE("mm_struct", "saved_auxv"), "fill_auxv_note",
+	auxv = (ulong *)GETBUF(size);
+
+	readmem(addr, KVADDR, auxv,
+		size, "fill_auxv_note",
 		gcore_verbose_error_handle());
 
 	i = 0;
@@ -954,13 +989,16 @@ compat_fill_auxv_note(struct elf_note_info *info,
 		      struct memelfnote *memnote)
 {
 	uint32_t *auxv;
+	ulong addr;
+	size_t size;
 	int i;
 
-	auxv = (uint32_t *)GETBUF(MEMBER_SIZE("mm_struct", "saved_auxv"));
+	get_auxv_size_addr(tc, &size, &addr);
 
-	readmem(task_mm(tc->task, FALSE) +
-		MEMBER_OFFSET("mm_struct", "saved_auxv"), KVADDR, auxv,
-		MEMBER_SIZE("mm_struct", "saved_auxv"), "fill_auxv_note32",
+	auxv = (uint32_t *)GETBUF(size);
+
+	readmem(addr, KVADDR, auxv,
+		size, "fill_auxv_note32",
 		gcore_verbose_error_handle());
 
 	i = 0;
