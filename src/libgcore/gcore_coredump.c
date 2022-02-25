@@ -930,11 +930,11 @@ fill_auxv_note(struct elf_note_info *info, struct task_context *tc,
 	ulong *auxv;
 	int i;
 
-	auxv = (ulong *)GETBUF(GCORE_SIZE(mm_struct_saved_auxv));
+	auxv = (ulong *)GETBUF(MEMBER_SIZE("mm_struct", "saved_auxv"));
 
 	readmem(task_mm(tc->task, FALSE) +
-		GCORE_OFFSET(mm_struct_saved_auxv), KVADDR, auxv,
-		GCORE_SIZE(mm_struct_saved_auxv), "fill_auxv_note",
+		MEMBER_OFFSET("mm_struct", "saved_auxv"), KVADDR, auxv,
+		MEMBER_SIZE("mm_struct", "saved_auxv"), "fill_auxv_note",
 		gcore_verbose_error_handle());
 
 	i = 0;
@@ -956,11 +956,11 @@ compat_fill_auxv_note(struct elf_note_info *info,
 	uint32_t *auxv;
 	int i;
 
-	auxv = (uint32_t *)GETBUF(GCORE_SIZE(mm_struct_saved_auxv));
+	auxv = (uint32_t *)GETBUF(MEMBER_SIZE("mm_struct", "saved_auxv"));
 
 	readmem(task_mm(tc->task, FALSE) +
-		GCORE_OFFSET(mm_struct_saved_auxv), KVADDR, auxv,
-		GCORE_SIZE(mm_struct_saved_auxv), "fill_auxv_note32",
+		MEMBER_OFFSET("mm_struct", "saved_auxv"), KVADDR, auxv,
+		MEMBER_SIZE("mm_struct", "saved_auxv"), "fill_auxv_note32",
 		gcore_verbose_error_handle());
 
 	i = 0;
