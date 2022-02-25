@@ -1072,7 +1072,6 @@ struct gcore_offset_table
 	long mm_struct_arg_end;
 	long mm_struct_map_count;
 	long mm_struct_reserved_vm;
-	long mm_struct_saved_auxv;
 	long mm_struct_saved_files;
 	long mm_struct_context;
 	long pid_level;
@@ -1148,7 +1147,6 @@ struct gcore_offset_table
 struct gcore_size_table
 {
 	long mm_context_t;
-	long mm_struct_saved_auxv;
 	long mm_struct_saved_files;
 	long thread_struct_ds;
 	long thread_struct_es;
