@@ -41,6 +41,9 @@ struct gcore_x86_table
 static struct gcore_x86_table gcore_x86_table;
 struct gcore_x86_table *gxt = &gcore_x86_table;
 
+static void gdb_run_command(char *cmd, char *buf, size_t size);
+static int get_vsyscall_mode_none(void);
+
 #ifdef X86_64
 static ulong gcore_x86_64_get_old_rsp(int cpu);
 static ulong gcore_x86_64_get_per_cpu__old_rsp(int cpu);
@@ -2367,6 +2370,54 @@ int gcore_is_arch_32bit_emulation(struct task_context *tc)
 	return FALSE;
 }
 
+static void gdb_run_command(char *cmd, char *buf, size_t size)
+{
+	open_tmpfile();
+	if (!gdb_pass_through(cmd,
+			      pc->tmpfile,
+			      GNU_RETURN_ON_ERROR)) {
+		close_tmpfile();
+		error(FATAL, "gdb command failed: %s", cmd);
+	}
+	rewind(pc->tmpfile);
+	fgets(buf, size, pc->tmpfile);
+	close_tmpfile();
+}
+
+static int get_vsyscall_mode_none(void)
+{
+	static int none = -1;
+	char cmd[32], buf[BUFSIZE];
+	int i;
+
+	if (none != -1)
+		return none;
+
+	/*
+	 * Variable vsyscall_mode is of anonymous enumeration
+	 * type. Because there's no utility function in crash utility
+	 * to get value of each constant in specified anonymous
+	 * enumeration type, we have no choice but rely on gdb's print
+	 * command in combination with typeof operator.
+	 */
+	for (i = 0; i < 10; ++i) {
+		snprintf(cmd, sizeof(cmd), "p (typeof(vsyscall_mode))%d", i);
+		gdb_run_command(cmd, buf, sizeof(buf));
+		if (strstr(buf, "NONE"))
+			return none = i;
+	}
+
+	/*
+	 * When the above logic doesn't work as expected, use 2, which
+	 * is the value on the definition where vsyscall_mode was
+	 * first introduced at the commit 3ae36655b97a (x86-64: Rework
+	 * vsyscall emulation and add vsyscall= parameter).
+	 */
+	none = 2;
+
+	return none;
+}
+
 /**
  * Return an address to gate_vma.
  */
@@ -2377,7 +2428,8 @@ ulong gcore_arch_get_gate_vma(void)
 		return 0UL;
 
 	if (symbol_exists("vsyscall_mode")) {
-		enum { ENUMERATE, NONE } vsyscall_mode;
+		int vsyscall_mode;
+		int none = get_vsyscall_mode_none();
 
 		readmem(symbol_value("vsyscall_mode"),
 			KVADDR,
@@ -2386,7 +2438,7 @@ ulong gcore_arch_get_gate_vma(void)
 			"gcore_arch_get_gate_vma: vsyscall_mode",
 			gcore_verbose_error_handle());
 
-		if (vsyscall_mode == NONE)
+		if (vsyscall_mode == none)
 			return 0UL;
 	}
 
