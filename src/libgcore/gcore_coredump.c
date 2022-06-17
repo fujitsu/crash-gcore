@@ -331,6 +331,21 @@ void gcore_coredump(void)
 	}
 	progressf("done.\n");
 
+	/*
+	 * Use ftruncate() to generate holes explicitly, or core file
+	 * gets truncated if there is no write() operation after the
+	 * area skipped by lseek().
+	 */
+	if (fflush(gcore->fp))
+		error(FATAL, "%s: fflush: %s\n",
+		      gcore->corename,
+		      strerror(errno));
+
+	if (ftruncate(fileno(gcore->fp), ftell(gcore->fp)) < 0)
+		error(FATAL, "%s: ftruncate: %s\n",
+		      gcore->corename,
+		      strerror(errno));
+
 	gcore->flags |= GCF_SUCCESS;
 
 }
