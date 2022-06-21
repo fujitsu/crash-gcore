@@ -1232,7 +1232,7 @@ struct gcore_elf_operations
 	int (*write_section_header)(struct gcore_elf_struct *this, FILE *fp);
 	int (*write_program_header)(struct gcore_elf_struct *this, FILE *fp);
 	int (*write_note_header)(struct gcore_elf_struct *this, FILE *fp,
-				 off_t *offset);
+				 loff_t *offset);
 
 	uint64_t (*get_e_phoff)(struct gcore_elf_struct *this);
 	uint64_t (*get_e_shoff)(struct gcore_elf_struct *this);

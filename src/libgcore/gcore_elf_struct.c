@@ -141,7 +141,7 @@ static int elf64_write_program_header(struct gcore_elf_struct *this, FILE *fp)
 }
 
 static int elf64_write_note_header(struct gcore_elf_struct *this, FILE *fp,
-				   off_t *offset)
+				   loff_t *offset)
 {
 	Elf64_Nhdr *n = &((struct gcore_elf64_struct *)this)->nhdr;
 
@@ -314,7 +314,7 @@ static int elf32_write_program_header(struct gcore_elf_struct *this, FILE *fp)
 }
 
 static int elf32_write_note_header(struct gcore_elf_struct *this, FILE *fp,
-				   off_t *offset)
+				   loff_t *offset)
 {
 	Elf32_Nhdr *n = &((struct gcore_elf32_struct *)this)->nhdr;
 
