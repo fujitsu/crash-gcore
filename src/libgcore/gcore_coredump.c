@@ -78,7 +78,8 @@ readswap(ulonglong pte_val, char *buf, ulong len, ulonglong vaddr)
 
 void gcore_readmem_user(ulong addr, void *buf, long size, char *type)
 {
-	ulong paddr, cnt;
+	physaddr_t paddr;
+	ulong cnt;
 	char *bufptr = buf;
 
 	while (size > 0) {
