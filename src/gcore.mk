@@ -32,7 +32,7 @@ endif
 
 ifeq ($(shell arch), arm)
   TARGET=ARM
-  TARGET_CFLAGS=
+  TARGET_CFLAGS=-D_FILE_OFFSET_BITS=64
   ARCH=SUPPORTED
 endif
 
@@ -44,7 +44,7 @@ endif
 
 ifeq ($(shell arch), mips)
   TARGET=MIPS
-  TARGET_CFLAGS=
+  TARGET_CFLAGS=-D_FILE_OFFSET_BITS=64
   ARCH=SUPPORTED
 endif
 
