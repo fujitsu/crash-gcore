@@ -985,6 +985,21 @@ struct memelfnote
 	void *data;
 };
 
+struct core_vma_metadata {
+	unsigned long start;
+	unsigned long end;
+	unsigned long flags;
+	unsigned long dump_size;
+	unsigned long pgoff;
+	unsigned long file;
+};
+
+struct coredump_params {
+	int vma_count;
+	size_t vma_data_size;
+	struct core_vma_metadata *vma_meta;
+};
+
 struct elf_note_info {
 	void (*fill_prstatus_note)(struct elf_note_info *info,
 				   struct task_context *tc,
@@ -997,7 +1012,8 @@ struct elf_note_info {
 			       struct memelfnote *memnote);
 	int (*fill_files_note)(struct elf_note_info *info,
 			       struct task_context *tc,
-			       struct memelfnote *memnote);
+			       struct memelfnote *memnote,
+			       struct coredump_params *cprm);
 	size_t size;
 	int thread_notes;
 };

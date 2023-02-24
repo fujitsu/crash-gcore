@@ -33,7 +33,8 @@ static void fill_auxv_note(struct elf_note_info *info,
 			   struct memelfnote *memnote);
 static int fill_files_note(struct elf_note_info *info,
 			   struct task_context *tc,
-			   struct memelfnote *memnote);
+			   struct memelfnote *memnote,
+			   struct coredump_params *cprm);
 
 #ifdef GCORE_ARCH_COMPAT
 static void compat_fill_prstatus_note(struct elf_note_info *info,
@@ -47,7 +48,8 @@ static void compat_fill_auxv_note(struct elf_note_info *info,
 				  struct memelfnote *memnote);
 static int compat_fill_files_note(struct elf_note_info *info,
 				  struct task_context *tc,
-				  struct memelfnote *memnote);
+				  struct memelfnote *memnote,
+				  struct coredump_params *cprm);
 #endif
 
 static void fill_elf_header(int phnum);
@@ -55,9 +57,10 @@ static void fill_write_thread_core_info(FILE *fp, struct task_context *tc,
 					struct task_context *dump_tc,
 					struct elf_note_info *info,
 					const struct user_regset_view *view,
-					loff_t *offset, size_t *total);
+					loff_t *offset, size_t *total,
+					struct coredump_params *cprm);
 static int fill_write_note_info(FILE *fp, struct elf_note_info *info, int phnum,
-				loff_t *offset);
+				loff_t *offset, struct coredump_params *cprm);
 static void fill_note(struct memelfnote *note, const char *name, int type,
 		      unsigned int sz, void *data);
 
@@ -136,29 +139,129 @@ do_maple_tree(ulong root, int flag, struct list_pair *lp)
 	return -ENOSYS;
 }
 
+static bool dump_vma_snapshot(struct coredump_params *cprm)
+{
+	ulong mm_mt, vma, gate_vma;
+	int count, i, j;
+	char *vma_cache;
+	struct core_vma_metadata *vma_meta;
+	size_t vma_data_size = 0;
+
+	gate_vma = gcore_arch_get_gate_vma();
+
+	if (MEMBER_EXISTS("mm_struct", "mmap")) {
+		char *mm_cache;
+		ulong mmap;
+		int map_count;
+
+		mm_cache = fill_mm_struct(task_mm(CURRENT_TASK(), TRUE));
+		if (!mm_cache) {
+			error(WARNING, "The user memory space does not exist.\n");
+			return FALSE;
+		}
+
+		mmap = ULONG(mm_cache + OFFSET(mm_struct_mmap));
+		map_count = INT(mm_cache + GCORE_OFFSET(mm_struct_map_count));
+
+		count = map_count;
+		if (gate_vma)
+			count++;
+
+		vma_meta = (struct core_vma_metadata *)GETBUF(count * sizeof(struct core_vma_metadata));
+
+		FOR_EACH_VMA_OBJECT(vma, j, mmap, gate_vma) {
+			vma_cache = fill_vma_cache(vma);
+
+			vma_meta[j].start = ULONG(vma_cache + OFFSET(vm_area_struct_vm_start));
+			vma_meta[j].end   = ULONG(vma_cache + OFFSET(vm_area_struct_vm_end));
+			vma_meta[j].flags = ULONG(vma_cache + OFFSET(vm_area_struct_vm_flags));
+			vma_meta[j].pgoff = ULONG(vma_cache + OFFSET(vm_area_struct_vm_pgoff));
+			vma_meta[j].file  = ULONG(vma_cache + OFFSET(vm_area_struct_vm_file));
+			vma_meta[j].dump_size = gcore_dumpfilter_vma_dump_size(vma);
+
+			vma_data_size += vma_meta[j].dump_size;
+		}
+	} else {
+		int entry_num;
+		struct list_pair *entry_list;
+
+		mm_mt = task_mm(CURRENT_TASK(), TRUE) + MEMBER_OFFSET("mm_struct", "mm_mt");
+		entry_num = do_maple_tree(mm_mt, MAPLE_TREE_COUNT, NULL);
+		entry_list = (struct list_pair *)GETBUF(entry_num * sizeof(struct list_pair));
+		do_maple_tree(mm_mt, MAPLE_TREE_GATHER, entry_list);
+
+		/* Calculate the actual number of vmas since each
+		 * entry could be empty. */
+		count = 0;
+
+		for (i = 0; i < entry_num; ++i)
+			if (entry_list[i].value)
+				count++;
+
+		if (gate_vma)
+			count++;
+
+		vma_meta = (struct core_vma_metadata *)GETBUF(count * sizeof(struct core_vma_metadata));
+
+		for (i = 0, j = 0; i < entry_num; ++i) {
+			if (!entry_list[i].value)
+				continue;
+
+			vma = (ulong)entry_list[i].value;
+			vma_cache = fill_vma_cache(vma);
+
+			vma_meta[j].start = ULONG(vma_cache + OFFSET(vm_area_struct_vm_start));
+			vma_meta[j].end   = ULONG(vma_cache + OFFSET(vm_area_struct_vm_end));
+			vma_meta[j].flags = ULONG(vma_cache + OFFSET(vm_area_struct_vm_flags));
+			vma_meta[j].pgoff = ULONG(vma_cache + OFFSET(vm_area_struct_vm_pgoff));
+			vma_meta[j].file  = ULONG(vma_cache + OFFSET(vm_area_struct_vm_file));
+			vma_meta[j].dump_size = gcore_dumpfilter_vma_dump_size(vma);
+
+			vma_data_size += vma_meta[j].dump_size;
+
+			j++;
+		}
+
+		FREEBUF(entry_list);
+
+		if (gate_vma) {
+			vma_cache = fill_vma_cache(gate_vma);
+
+			vma_meta[j].start = ULONG(vma_cache + OFFSET(vm_area_struct_vm_start));
+			vma_meta[j].end   = ULONG(vma_cache + OFFSET(vm_area_struct_vm_end));
+			vma_meta[j].flags = ULONG(vma_cache + OFFSET(vm_area_struct_vm_flags));
+			vma_meta[j].pgoff = ULONG(vma_cache + OFFSET(vm_area_struct_vm_pgoff));
+			vma_meta[j].file  = ULONG(vma_cache + OFFSET(vm_area_struct_vm_file));
+			vma_meta[j].dump_size = gcore_dumpfilter_vma_dump_size(gate_vma);
+
+			vma_data_size += vma_meta[j].dump_size;
+		}
+	}
+
+	cprm->vma_count = count;
+	cprm->vma_data_size = vma_data_size;
+	cprm->vma_meta = vma_meta;
+
+	return true;
+}
+
 void gcore_coredump(void)
 {
 	struct elf_note_info *info;
-	int map_count, phnum;
-	ulong vma, index, mmap;
+	int phnum;
 	loff_t offset;
-	char *mm_cache, *buffer = NULL;
-	ulong gate_vma;
+	char *buffer = NULL;
+	ulong i;
+	struct coredump_params cprm;
 
 	gcore->flags |= GCF_UNDER_COREDUMP;
 
-	mm_cache = fill_mm_struct(task_mm(CURRENT_TASK(), TRUE));
-	if (!mm_cache)
-		error(FATAL, "The user memory space does not exist.\n");
+	if (!dump_vma_snapshot(&cprm))
+		error(FATAL, "Failed to collect vma list.\n");
 
-	mmap = ULONG(mm_cache + OFFSET(mm_struct_mmap));
-	map_count = INT(mm_cache + GCORE_OFFSET(mm_struct_map_count));
+	phnum = cprm.vma_count;
 
-	phnum = map_count;
 	phnum++; /* for note information */
-	gate_vma = gcore_arch_get_gate_vma();
-	if (gate_vma)
-		phnum++;
 
 	info = elf_note_info_init();
 
@@ -185,7 +288,7 @@ void gcore_coredump(void)
 	}
 
 	progressf("Retrieving and writing note information ... \n");
-	fill_write_note_info(gcore->fp, info, phnum, &offset);
+	fill_write_note_info(gcore->fp, info, phnum, &offset, &cprm);
 	progressf("done.\n");
 
 	if (gcore->elf->ops->get_e_shoff(gcore->elf)) {
@@ -222,35 +325,27 @@ void gcore_coredump(void)
 	offset = roundup(offset, ELF_EXEC_PAGESIZE);
 
 	progressf("Writing PT_LOAD program headers ... \n");
-	FOR_EACH_VMA_OBJECT(vma, index, mmap, gate_vma) {
-		char *vma_cache;
-		ulong vm_start, vm_end, vm_flags;
-		uint64_t p_offset, p_filesz;
-		uint32_t p_flags;
+	for (i = 0; i < cprm.vma_count; ++i) {
+		struct core_vma_metadata *meta = &cprm.vma_meta[i];
+		uint32_t p_flags = 0;
 
-		vma_cache = fill_vma_cache(vma);
-		vm_start = ULONG(vma_cache + OFFSET(vm_area_struct_vm_start));
-		vm_end   = ULONG(vma_cache + OFFSET(vm_area_struct_vm_end));
-		vm_flags = ULONG(vma_cache + OFFSET(vm_area_struct_vm_flags));
-
-		p_flags = 0;
-		if (vm_flags & VM_READ)
+		if (meta->flags & VM_READ)
 			p_flags |= PF_R;
-		if (vm_flags & VM_WRITE)
+		if (meta->flags & VM_WRITE)
 			p_flags |= PF_W;
-		if (vm_flags & VM_EXEC)
+		if (meta->flags & VM_EXEC)
 			p_flags |= PF_X;
 
-		p_offset = offset;
-		p_filesz = gcore_dumpfilter_vma_dump_size(vma);
-
-		offset += p_filesz;
-
-		gcore->elf->ops->fill_program_header(gcore->elf, PT_LOAD,
-						     p_flags, p_offset,
-						     vm_start, p_filesz,
-						     vm_end - vm_start,
+		gcore->elf->ops->fill_program_header(gcore->elf,
+						     PT_LOAD,
+						     meta->flags,
+						     offset,
+						     meta->start,
+						     meta->dump_size,
+						     meta->end - meta->start,
 						     ELF_EXEC_PAGESIZE);
+
+		offset += meta->dump_size;
 
 		if (!gcore->elf->ops->write_program_header(gcore->elf,
 							   gcore->fp))
@@ -277,17 +372,15 @@ void gcore_coredump(void)
 	BZERO(buffer, PAGE_SIZE);
 
 	progressf("Writing PT_LOAD segment ... \n");
-	FOR_EACH_VMA_OBJECT(vma, index, mmap, gate_vma) {
-		ulong addr, end, vm_start;
+	for (i = 0; i < cprm.vma_count; ++i) {
+		struct core_vma_metadata *meta = &cprm.vma_meta[i];
+		ulong addr, end;
 
-		vm_start = ULONG(fill_vma_cache(vma) +
-				 OFFSET(vm_area_struct_vm_start));
+		end = meta->start + meta->dump_size;
 
-		end = vm_start + gcore_dumpfilter_vma_dump_size(vma);
+		progressf("PT_LOAD[%lu]: %lx - %lx\n", i, meta->start, end);
 
-		progressf("PT_LOAD[%lu]: %lx - %lx\n", index, vm_start, end);
-
-		for (addr = vm_start; addr < end; addr += PAGE_SIZE) {
+		for (addr = meta->start; addr < end; addr += PAGE_SIZE) {
 			physaddr_t paddr;
 
 			if (uvtop_quiet(addr, &paddr)
@@ -356,6 +449,8 @@ void gcore_coredump(void)
 		error(FATAL, "%s: ftruncate: %s\n",
 		      gcore->corename,
 		      strerror(errno));
+
+	FREEBUF(cprm.vma_meta);
 
 	gcore->flags |= GCF_SUCCESS;
 
@@ -546,7 +641,8 @@ fill_write_thread_core_info(FILE *fp, struct task_context *tc,
 			    struct task_context *dump_tc,
 			    struct elf_note_info *info,
 			    const struct user_regset_view *view,
-			    loff_t *offset, size_t *total)
+			    loff_t *offset, size_t *total,
+			    struct coredump_params *cprm)
 {
 	unsigned int i;
 	char *buf;
@@ -583,7 +679,7 @@ fill_write_thread_core_info(FILE *fp, struct task_context *tc,
 		writenote(&memnote, fp, offset);
 		FREEBUF(memnote.data);
 
-		if (info->fill_files_note(info, dump_tc, &memnote)) {
+		if (info->fill_files_note(info, dump_tc, &memnote, cprm)) {
 			info->size += notesize(&memnote);
 			writenote(&memnote, fp, offset);
 			FREEBUF(memnote.data);
@@ -637,7 +733,7 @@ static struct elf_note_info *elf_note_info_init(void)
 
 static int
 fill_write_note_info(FILE *fp, struct elf_note_info *info, int phnum,
-		     loff_t *offset)
+		     loff_t *offset, struct coredump_params *cprm)
 {
 	const struct user_regset_view *view = task_user_regset_view();
 	struct task_context *tc;
@@ -664,11 +760,12 @@ fill_write_note_info(FILE *fp, struct elf_note_info *info, int phnum,
 	 * process core dumper and gdb gcore.
 	 */
 	fill_write_thread_core_info(fp, dump_tc, dump_tc, info, view,
-				    offset, &info->size);
+				    offset, &info->size, cprm);
 	FOR_EACH_TASK_IN_THREAD_GROUP(task_tgid(dump_tc->task), tc) {
 		if (tc != dump_tc) {
 			fill_write_thread_core_info(fp, tc, dump_tc, info,
-						    view, offset, &info->size);
+						    view, offset, &info->size,
+						    cprm);
 		}
 	}
 
@@ -1040,33 +1137,24 @@ compat_fill_auxv_note(struct elf_note_info *info,
 
 static int
 fill_files_note(struct elf_note_info *info, struct task_context *tc,
-	       struct memelfnote *memnote)
+		struct memelfnote *memnote, struct coredump_params *cprm)
 {
-	ulong mmap, gate_vma, vma, vm_start, vm_end, vm_file, vm_pgoff, dentry, vfsmnt;
-	unsigned count, map_count, size, names_ofs, remaining, n, index;
+	ulong dentry, vfsmnt;
+	unsigned count, size, names_ofs, remaining, n;
 	ulong *data, *start_end_ofs;
-	char *name_base, *name_curpos, *file_buf, *mm_cache;
+	char *name_base, *name_curpos, *file_buf;
 	char buf[BUFSIZE];
+	ulong i;
 
 	BZERO(buf, BUFSIZE);
 
-	mm_cache = fill_mm_struct(task_mm(CURRENT_TASK(), TRUE));
-	if (!mm_cache) {
-		error(WARNING, "The user memory space does not exist.\n");
-		return FALSE;
-	}
-
-	mmap = ULONG(mm_cache + OFFSET(mm_struct_mmap));
-	gate_vma = gcore_arch_get_gate_vma();
-
 	/* *Estimated* file count and total data size needed */
-	map_count = count = INT(mm_cache + GCORE_OFFSET(mm_struct_map_count));
-	if (count > UINT_MAX / 64) {
+	if (cprm->vma_count > UINT_MAX / 64) {
 		error(WARNING, "Map count too big.\n");
 		return FALSE;
 	}
-	size = count * 64;
-	names_ofs = (2 + 3 * count) * sizeof(data[0]);
+	size = cprm->vma_count * 64;
+	names_ofs = (2 + 3 * cprm->vma_count) * sizeof(data[0]);
 
 	/* paranoia check */
 	if (size >= ELF_EXEC_PAGESIZE * 1024) {
@@ -1082,22 +1170,13 @@ fill_files_note(struct elf_note_info *info, struct task_context *tc,
 	remaining = size - names_ofs;
 	count = 0;
 
-	FOR_EACH_VMA_OBJECT(vma, index, mmap, gate_vma) {
-		char *vma_cache;
+	for (i = 0; i < cprm->vma_count; ++i) {
+		struct core_vma_metadata *meta = &cprm->vma_meta[i];
 
-		if (!IS_KVADDR(vma))
+		if (!meta->file)
 			continue;
 
-		vma_cache = fill_vma_cache(vma);
-		vm_start = ULONG(vma_cache + OFFSET(vm_area_struct_vm_start));
-		vm_end = ULONG(vma_cache + OFFSET(vm_area_struct_vm_end));
-		vm_file = ULONG(vma_cache + OFFSET(vm_area_struct_vm_file));
-		vm_pgoff = ULONG(vma_cache + OFFSET(vm_area_struct_vm_pgoff));
-
-		if (!vm_file)
-			continue;
-
-		file_buf = fill_file_cache(vm_file);
+		file_buf = fill_file_cache(meta->file);
 		dentry = ULONG(file_buf + OFFSET(file_f_dentry));
 		if (dentry) {
 			fill_dentry_cache(dentry);
@@ -1116,9 +1195,9 @@ fill_files_note(struct elf_note_info *info, struct task_context *tc,
 		progressf("FILE %s\n", name_curpos);
 		name_curpos += n;
 
-		*start_end_ofs++ = vm_start;
-		*start_end_ofs++ = vm_end;
-		*start_end_ofs++ = vm_pgoff;
+		*start_end_ofs++ = meta->start;
+		*start_end_ofs++ = meta->end;
+		*start_end_ofs++ = meta->pgoff;
 		count++;
 	}
 
@@ -1130,7 +1209,7 @@ fill_files_note(struct elf_note_info *info, struct task_context *tc,
 	 * Count usually is less than map_count,
 	 * we need to move filenames down.
 	 */
-	n = map_count - count;
+	n = cprm->vma_count - count;
 	if (n != 0) {
 		unsigned shift_bytes = n * 3 * sizeof(data[0]);
 		memmove(name_base - shift_bytes, name_base,
@@ -1147,33 +1226,24 @@ fill_files_note(struct elf_note_info *info, struct task_context *tc,
 #ifdef GCORE_ARCH_COMPAT
 static int
 compat_fill_files_note(struct elf_note_info *info, struct task_context *tc,
-		       struct memelfnote *memnote)
+		       struct memelfnote *memnote, struct coredump_params *cprm)
 {
-	ulong mmap, gate_vma, vma, vm_start, vm_end, vm_file, vm_pgoff, dentry, vfsmnt;
-	unsigned count, map_count, size, names_ofs, remaining, n, index;
+	ulong dentry, vfsmnt;
+	unsigned count, size, names_ofs, remaining, n;
 	unsigned int *data, *start_end_ofs;
-	char *name_base, *name_curpos, *file_buf, *mm_cache;
+	char *name_base, *name_curpos, *file_buf;
 	char buf[BUFSIZE];
+	ulong i;
 
 	BZERO(buf, BUFSIZE);
 
-	mm_cache = fill_mm_struct(task_mm(CURRENT_TASK(), TRUE));
-	if (!mm_cache) {
-		error(WARNING, "The user memory space does not exist.\n");
-		return FALSE;
-	}
-
-	mmap = ULONG(mm_cache + OFFSET(mm_struct_mmap));
-	gate_vma = gcore_arch_get_gate_vma();
-
 	/* *Estimated* file count and total data size needed */
-	map_count = count = INT(mm_cache + GCORE_OFFSET(mm_struct_map_count));
-	if (count > UINT_MAX / 64) {
+	if (cprm->vma_count > UINT_MAX / 64) {
 		error(WARNING, "Map count too big.\n");
 		return FALSE;
 	}
-	size = count * 64;
-	names_ofs = (2 + 3 * count) * sizeof(data[0]);
+	size = cprm->vma_count * 64;
+	names_ofs = (2 + 3 * cprm->vma_count) * sizeof(data[0]);
 
 	/* paranoia check */
 	if (size >= ELF_EXEC_PAGESIZE * 1024) {
@@ -1189,22 +1259,13 @@ compat_fill_files_note(struct elf_note_info *info, struct task_context *tc,
 	remaining = size - names_ofs;
 	count = 0;
 
-	FOR_EACH_VMA_OBJECT(vma, index, mmap, gate_vma) {
-		char *vma_cache;
+	for (i = 0; i < cprm->vma_count; ++i) {
+		struct core_vma_metadata *meta = &cprm->vma_meta[i];
 
-		if (!IS_KVADDR(vma))
+		if (!meta->file)
 			continue;
 
-		vma_cache = fill_vma_cache(vma);
-		vm_start = ULONG(vma_cache + OFFSET(vm_area_struct_vm_start));
-		vm_end = ULONG(vma_cache + OFFSET(vm_area_struct_vm_end));
-		vm_file = ULONG(vma_cache + OFFSET(vm_area_struct_vm_file));
-		vm_pgoff = ULONG(vma_cache + OFFSET(vm_area_struct_vm_pgoff));
-
-		if (!vm_file)
-			continue;
-
-		file_buf = fill_file_cache(vm_file);
+		file_buf = fill_file_cache(meta->file);
 		dentry = ULONG(file_buf + OFFSET(file_f_dentry));
 		if (dentry) {
 			fill_dentry_cache(dentry);
@@ -1223,9 +1284,9 @@ compat_fill_files_note(struct elf_note_info *info, struct task_context *tc,
 		progressf("FILE %s\n", name_curpos);
 		name_curpos += n;
 
-		*start_end_ofs++ = vm_start;
-		*start_end_ofs++ = vm_end;
-		*start_end_ofs++ = vm_pgoff;
+		*start_end_ofs++ = meta->start;
+		*start_end_ofs++ = meta->end;
+		*start_end_ofs++ = meta->pgoff;
 		count++;
 	}
 
@@ -1237,7 +1298,7 @@ compat_fill_files_note(struct elf_note_info *info, struct task_context *tc,
 	 * Count usually is less than map_count,
 	 * we need to move filenames down.
 	 */
-	n = map_count - count;
+	n = cprm->vma_count - count;
 	if (n != 0) {
 		unsigned shift_bytes = n * 3 * sizeof(data[0]);
 		memmove(name_base - shift_bytes, name_base,
