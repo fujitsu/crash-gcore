@@ -125,6 +125,17 @@ void gcore_readmem_user(ulong addr, void *buf, long size, char *type)
 	}
 }
 
+ulong __attribute__((weak))
+do_maple_tree(ulong root, int flag, struct list_pair *lp)
+{
+	error(FATAL,
+	      "Please try to use a newer version of crash utility.\n"
+	      "Although the kernel of this core dump uses maple tree to manage vma list,\n"
+	      "no maple tree API is available on the currently running crash utility.\n");
+
+	return -ENOSYS;
+}
+
 void gcore_coredump(void)
 {
 	struct elf_note_info *info;
