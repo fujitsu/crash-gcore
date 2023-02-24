@@ -2502,6 +2502,13 @@ int gcore_arch_vsyscall_has_vm_alwaysdump_flag(void)
 	struct task_context *tc;
 	int i;
 
+	/*
+	 * For simplicity, consider that VM_ALWAYSDUMP was already not
+	 * present when maple tree was introduced.
+	 */
+	if (!MEMBER_EXISTS("mm_struct", "mmap"))
+		return FALSE;
+
 	target_vma = 0UL;
 
 	/*
