@@ -12,8 +12,8 @@
 # GNU General Public License for more details.
 #
 
-VERSION=1.6.3
-DATE=7 Dec 2021
+VERSION=1.6.4
+DATE=28 Feb 2023
 PERIOD=2010-2023
 
 ARCH=UNSUPPORTED
