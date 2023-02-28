@@ -128,6 +128,14 @@ void gcore_readmem_user(ulong addr, void *buf, long size, char *type)
 	}
 }
 
+#if !defined(MAPLE_TREE_COUNT)
+#define MAPLE_TREE_COUNT (1)
+#endif
+
+#if !defined(MAPLE_TREE_GATHER)
+#define MAPLE_TREE_GATHER (4)
+#endif
+
 ulong __attribute__((weak))
 do_maple_tree(ulong root, int flag, struct list_pair *lp)
 {
