@@ -2503,6 +2503,21 @@ int gcore_arch_vsyscall_has_vm_alwaysdump_flag(void)
 	int i;
 
 	/*
+	 * The commit 909af768e88867016f427264ae39d27a57b6a8ed
+	 * (coredump: remove VM_ALWAYSDUMP flag) of the Linux kernel
+	 * was merged at v3.4. We can say VM_ALWAYSDUMP flag doesn't
+	 * exist for the version 3.4.0 or later. The base kernel
+	 * version of RHEL7.0 GA is 3.10.0-123.el7. Hence, this
+	 * condition is expected to match RHEL7 and later RHEL major
+	 * versions. On the other hand, the commit
+	 * 909af768e88867016f427264ae39d27a57b6a8ed was backported
+	 * into the kernel package in RHEL6 and the exploring code is
+	 * still needed.
+	 */
+	if (THIS_KERNEL_VERSION >= LINUX(3, 4, 0))
+		return FALSE;
+
+	/*
 	 * For simplicity, consider that VM_ALWAYSDUMP was already not
 	 * present when maple tree was introduced.
 	 */
