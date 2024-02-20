@@ -1161,8 +1161,31 @@ fill_files_note(struct elf_note_info *info, struct task_context *tc,
 		error(WARNING, "Map count too big.\n");
 		return FALSE;
 	}
-	size = cprm->vma_count * 64;
+
+	size = 0;
+	for (i = 0; i < cprm->vma_count; ++i) {
+		struct core_vma_metadata *meta = &cprm->vma_meta[i];
+
+		if (!meta->file)
+			continue;
+
+		file_buf = fill_file_cache(meta->file);
+		dentry = ULONG(file_buf + OFFSET(file_f_dentry));
+		if (dentry) {
+			fill_dentry_cache(dentry);
+			if (VALID_MEMBER(file_f_vfsmnt)) {
+				vfsmnt = ULONG(file_buf + OFFSET(file_f_vfsmnt));
+				get_pathname(dentry, buf, BUFSIZE, 1, vfsmnt);
+			} else {
+				get_pathname(dentry, buf, BUFSIZE, 1, 0);
+			}
+		}
+
+		size += strlen(buf) * sizeof(char) + 1;
+	}
+
 	names_ofs = (2 + 3 * cprm->vma_count) * sizeof(data[0]);
+	size += names_ofs;
 
 	/* paranoia check */
 	if (size >= ELF_EXEC_PAGESIZE * 1024) {
