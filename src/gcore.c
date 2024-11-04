@@ -306,7 +306,7 @@ static void do_gcore(char *arg)
 
 		if (tc != CURRENT_CONTEXT()) {
 			gcore->orig_task = CURRENT_TASK();
-			(void) set_context(tc->task, NO_PID);
+			(void) set_context(tc->task, NO_PID, FALSE);
 		}
 
 		snprintf(gcore->corename, CORENAME_MAX_SIZE + 1, "core.%lu.%s",
@@ -340,7 +340,7 @@ static void do_gcore(char *arg)
 	}
 
 	if (gcore->orig_task)
-		(void)set_context(gcore->orig_task, NO_PID);
+		(void)set_context(gcore->orig_task, NO_PID, FALSE);
 
 }
 
