@@ -514,10 +514,11 @@ convert_from_fxsr(struct user_i387_ia32_struct *env, struct task_context *target
 		char *pt_regs_buf;
 		uint16_t ds;
 		struct machine_specific *ms = machdep->machspec;
+		ulong padding_size = VALID_SIZE(fred_frame) > 0 ? (2 * 8) : 0;
 
 		pt_regs_buf = GETBUF(SIZE(pt_regs));
 
-		readmem(machdep->get_stacktop(target->task) - SIZE(pt_regs),
+		readmem(machdep->get_stacktop(target->task) - padding_size - SIZE(pt_regs),
 			KVADDR,	pt_regs_buf, SIZE(pt_regs),
 			"convert_from_fxsr: regs",
 			gcore_verbose_error_handle());
@@ -1837,6 +1838,7 @@ static int genregs_get(struct task_context *target,
 	struct user_regs_struct active_regs;
 	const int active = is_task_active(target->task);
 	struct machine_specific *ms = machdep->machspec;
+	ulong padding_size = VALID_SIZE(fred_frame) > 0 ? (2 * 8) : 0;
 
 	BZERO(regs, sizeof(*regs));
 
@@ -1854,7 +1856,7 @@ static int genregs_get(struct task_context *target,
 	 */
 	pt_regs_buf = GETBUF(SIZE(pt_regs));
 
-	readmem(machdep->get_stacktop(target->task) - SIZE(pt_regs), KVADDR,
+	readmem(machdep->get_stacktop(target->task) - padding_size - SIZE(pt_regs), KVADDR,
 		pt_regs_buf, SIZE(pt_regs), "genregs_get: pt_regs",
 		gcore_verbose_error_handle());
 
@@ -2188,6 +2190,7 @@ static int genregs_get32(struct task_context *target,
 	struct user_regs_struct *regs = (struct user_regs_struct *)buf;
 	char *pt_regs_buf;
 	ulonglong pt_regs_addr;
+	ulong padding_size = VALID_SIZE(fred_frame) > 0 ? (2 * 8) : 0;
 
 	if (is_task_active(target->task) && KVMDUMP_DUMPFILE()) {
 		get_regs_from_kvmdump_notes(target, regs);
@@ -2198,7 +2201,7 @@ static int genregs_get32(struct task_context *target,
 
 	pt_regs_buf = GETBUF(SIZE(pt_regs));
 
-	pt_regs_addr = machdep->get_stacktop(target->task) - SIZE(pt_regs);
+	pt_regs_addr = machdep->get_stacktop(target->task) - padding_size - SIZE(pt_regs);
 
 	/*
 	 * The commit 07b047fc2466249aff7cdb23fa0b0955a7a00d48
