@@ -60,6 +60,12 @@ ifeq ($(shell arch), ppc64le)
   ARCH=SUPPORTED
 endif
 
+ifeq ($(shell arch), riscv64)
+  TARGET=RISCV64
+  TARGET_CFLAGS=
+  ARCH=SUPPORTED
+endif
+
 ifeq ($(shell /bin/ls /usr/include/crash/defs.h 2>/dev/null), /usr/include/crash/defs.h)
   INCDIR=/usr/include/crash
 endif
@@ -97,6 +103,10 @@ endif
 
 ifneq (,$(findstring $(TARGET), PPC64))
 GCORE_CFILES += libgcore/gcore_ppc64.c
+endif
+
+ifneq (,$(findstring $(TARGET), RISCV64))
+GCORE_CFILES += libgcore/gcore_riscv64.c
 endif
 
 GCORE_OFILES = $(patsubst %.c,%.o,$(GCORE_CFILES))

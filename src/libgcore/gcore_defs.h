@@ -114,6 +114,26 @@
 #define Elf_Nhdr Elf32_Nhdr
 #endif
 
+#ifdef RISCV64
+#define ELF_EXEC_PAGESIZE 4096
+
+#define ELF_MACHINE EM_RISCV
+#define ELF_OSABI ELFOSABI_NONE
+
+#define ELF_CLASS ELFCLASS64
+#define ELF_DATA ELFDATA2LSB
+#define ELF_ARCH EM_RISCV
+
+#define Elf_Half Elf64_Half
+#define Elf_Word Elf64_Word
+#define Elf_Off Elf64_Off
+
+#define Elf_Ehdr Elf64_Ehdr
+#define Elf_Phdr Elf64_Phdr
+#define Elf_Shdr Elf64_Shdr
+#define Elf_Nhdr Elf64_Nhdr
+#endif
+
 #ifdef ARM64
 #define ELF_EXEC_PAGESIZE PAGESIZE()
 
@@ -322,6 +342,11 @@ extern void gcore_default_regsets_init(void);
 #ifdef MIPS
 #define REGSET_VIEW_NAME "mips"
 #define REGSET_VIEW_MACHINE EM_MIPS
+#endif
+
+#ifdef RISCV64
+#define REGSET_VIEW_NAME "riscv64"
+#define REGSET_VIEW_MACHINE EM_RISCV
 #endif
 
 #ifdef PPC64
@@ -643,6 +668,23 @@ struct user_regs_struct {
 };
 #endif
 
+#ifdef RISCV64
+
+typedef unsigned int __u32;
+typedef unsigned long __u64;
+
+/* taken from uapi/asm/ptrace.h */
+struct user_regs_struct {
+	unsigned long gregs[32];
+};
+
+struct __riscv_d_ext_state {
+		__u64 f[32];
+		__u32 fcsr;
+};
+
+#endif /* RISCV64 */
+
 #ifdef PPC64
 /* taken from asm/ptrace.h */
 struct user_regs_struct {
@@ -669,13 +711,13 @@ struct user_regs_struct {
 };
 #endif
 
-#if defined(X86) || defined(X86_64) || defined(ARM) || defined(MIPS)
+#if defined(X86) || defined(X86_64) || defined(ARM) || defined(MIPS) || defined(RISCV64)
 typedef ulong elf_greg_t;
 #define ELF_NGREG (sizeof(struct user_regs_struct) / sizeof(elf_greg_t))
 typedef elf_greg_t elf_gregset_t[ELF_NGREG];
 #endif
 
-#if defined(X86) || defined(ARM) || defined(MIPS)
+#if defined(X86) || defined(ARM) || defined(MIPS) || defined(RISCV64)
 #define PAGE_SIZE 4096
 #endif
 #if defined(ARM64) || defined(PPC64)
@@ -837,12 +879,12 @@ typedef unsigned short __kernel_old_uid_t;
 typedef unsigned short __kernel_old_gid_t;
 #endif
 
-#if defined(X86_64) || defined(ARM64) || defined(PPC64)
+#if defined(X86_64) || defined(ARM64) || defined(PPC64) || defined(RISCV64)
 typedef unsigned int __kernel_uid_t;
 typedef unsigned int __kernel_gid_t;
 #endif
 
-#ifdef ARM64
+#if defined(ARM64) || defined(RISCV64)
 #ifndef __kernel_old_uid_t
 typedef __kernel_uid_t  __kernel_old_uid_t;
 typedef __kernel_gid_t  __kernel_old_gid_t;
@@ -1148,6 +1190,7 @@ struct gcore_offset_table
 	long thread_struct_io_bitmap_ptr;
 	long thread_struct_fpsimd_state;
 	long thread_struct_tp_value;
+	long thread_struct_fstate;
 	long user_regset_n;
 	long vfp_state_hard;
 	long vfp_hard_struct_fpregs;
