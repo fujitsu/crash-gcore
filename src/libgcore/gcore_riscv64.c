@@ -44,8 +44,25 @@ static int gpr_get(struct task_context *target,
     return 0;
 }
 
+static int fpr_get(struct task_context *target,
+                   const struct user_regset *regset,
+                   unsigned int size, void *buf)
+{
+    struct __riscv_d_ext_state *fpr = (struct __riscv_d_ext_state *)buf;
+
+    BZERO(fpr, sizeof(*fpr));
+    readmem(target->task + OFFSET(task_struct_thread)
+            + GCORE_OFFSET(thread_struct_fstate),
+            KVADDR, fpr, sizeof(struct __riscv_d_ext_state),
+            "fpr_get: user_struct_fstate",
+            gcore_verbose_error_handle());
+
+    return 0;
+}
+
 enum gcore_regset {
 	REGSET_GPR,
+    REGSET_FPR,
 };
 
 static const struct user_regset riscv64_regsets[] = {
@@ -55,6 +72,12 @@ static const struct user_regset riscv64_regsets[] = {
 		.size = ELF_NGREG * sizeof(uint64_t),
 		.get = gpr_get,
 	},
+    [REGSET_FPR] = {
+        .core_note_type = NT_FPREGSET,
+        .name = "CORE",
+        .size = sizeof(struct __riscv_d_ext_state),
+        .get = fpr_get,
+    },
 };
 
 #ifndef ARRAY_SIZE

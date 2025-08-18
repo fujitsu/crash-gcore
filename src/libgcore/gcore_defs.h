@@ -669,10 +669,20 @@ struct user_regs_struct {
 #endif
 
 #ifdef RISCV64
+
+typedef unsigned int __u32;
+typedef unsigned long __u64;
+
 /* taken from uapi/asm/ptrace.h */
 struct user_regs_struct {
 	unsigned long gregs[32];
 };
+
+struct __riscv_d_ext_state {
+		__u64 f[32];
+		__u32 fcsr;
+};
+
 #endif /* RISCV64 */
 
 #ifdef PPC64
@@ -1180,6 +1190,7 @@ struct gcore_offset_table
 	long thread_struct_io_bitmap_ptr;
 	long thread_struct_fpsimd_state;
 	long thread_struct_tp_value;
+	long thread_struct_fstate;
 	long user_regset_n;
 	long vfp_state_hard;
 	long vfp_hard_struct_fpregs;
