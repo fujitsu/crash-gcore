@@ -2471,7 +2471,7 @@ char *gcore_arch_vma_name(ulong vma)
 	 * is decided at the start of process execution and assigned
 	 * at mm_context_t::vdso.
 	 */
-	if (GCORE_OFFSET(mm_context_t_vdso) >= 0) {
+	if (GCORE_VALID_MEMBER(mm_context_t_vdso)) {
 		readmem(mm + GCORE_OFFSET(mm_struct_context) +
 			GCORE_OFFSET(mm_context_t_vdso), KVADDR, &vdso,
 			sizeof(vdso), "gcore_arch_vma_name: mm->context.vdso",
