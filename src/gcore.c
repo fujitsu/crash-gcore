@@ -30,8 +30,13 @@ static struct command_table_entry command_table[] = {
 	{ (char *)NULL }                               
 };
 
+#ifdef LOONGARCH64
+int __attribute__((constructor))
+_init(void)
+#else
 int 
 _init(void) /* Register the command set. */
+#endif
 {
 	gcore_offset_table_init();
 	gcore_size_table_init();
@@ -42,9 +47,14 @@ _init(void) /* Register the command set. */
         register_extension(command_table);
 	return 1;
 }
- 
+
+#ifdef LOONGARCH64
+int __attribute__((destructor))
+_fini(void)
+#else
 int 
-_fini(void) 
+_fini(void)
+#endif
 { 
 	return 1;
 }
