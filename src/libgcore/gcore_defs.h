@@ -170,6 +170,27 @@
 #define NT_FILE 0x46494c45
 #endif
 
+#ifdef LOONGARCH64
+#define ELF_EXEC_PAGESIZE PAGESIZE()
+
+#define ELF_MACHINE EM_LOONGARCH
+#define ELF_OSABI ELFOSABI_NONE
+
+#define ELF_CLASS ELFCLASS64
+#define ELF_DATA ELFDATA2LSB
+#define ELF_ARCH EM_LOONGARCH
+
+#define Elf_Half Elf64_Half
+#define Elf_Word Elf64_Word
+#define Elf_Off Elf64_Off
+
+#define Elf_Ehdr Elf64_Ehdr
+#define Elf_Phdr Elf64_Phdr
+#define Elf_Shdr Elf64_Shdr
+#define Elf_Nhdr Elf64_Nhdr
+#endif
+
+
 #define PAGE_ALIGN(X) roundup(X, ELF_EXEC_PAGESIZE)
 
 #ifdef divideup
@@ -327,6 +348,11 @@ extern void gcore_default_regsets_init(void);
 #ifdef PPC64
 #define REGSET_VIEW_NAME "ppc64"
 #define REGSET_VIEW_MACHINE EM_PPC64
+#endif
+
+#ifdef LOONGARCH64
+#define REGSET_VIEW_NAME "loongarch64"
+#define REGSET_VIEW_MACHINE EM_LOONGARCH
 #endif
 
 extern int gcore_arch_get_fp_valid(struct task_context *tc);
@@ -669,7 +695,26 @@ struct user_regs_struct {
 };
 #endif
 
-#if defined(X86) || defined(X86_64) || defined(ARM) || defined(MIPS)
+#ifdef LOONGARCH64
+struct user_regs_struct {
+        /* Saved main processor registers. */
+        unsigned long regs[32];
+
+        /* Saved special registers. */
+        unsigned long orig_a0;
+        unsigned long csr_era;
+        unsigned long csr_badvaddr;
+        unsigned long csr_crmd;
+        unsigned long csr_prmd;
+        unsigned long csr_euen;
+        unsigned long csr_ecfg;
+        unsigned long csr_estat;
+        unsigned long reserved[5];
+        } __attribute__ ((aligned (8)));
+#endif
+
+
+#if defined(X86) || defined(X86_64) || defined(ARM) || defined(MIPS)|| defined(LOONGARCH64)
 typedef ulong elf_greg_t;
 #define ELF_NGREG (sizeof(struct user_regs_struct) / sizeof(elf_greg_t))
 typedef elf_greg_t elf_gregset_t[ELF_NGREG];
@@ -678,7 +723,7 @@ typedef elf_greg_t elf_gregset_t[ELF_NGREG];
 #if defined(X86) || defined(ARM) || defined(MIPS)
 #define PAGE_SIZE 4096
 #endif
-#if defined(ARM64) || defined(PPC64)
+#if defined(ARM64) || defined(PPC64) || defined(LOONGARCH64)
 #define PAGE_SIZE PAGESIZE()
 #endif
 
@@ -837,7 +882,7 @@ typedef unsigned short __kernel_old_uid_t;
 typedef unsigned short __kernel_old_gid_t;
 #endif
 
-#if defined(X86_64) || defined(ARM64) || defined(PPC64)
+#if defined(X86_64) || defined(ARM64) || defined(PPC64) || defined(LOONGARCH64)
 typedef unsigned int __kernel_uid_t;
 typedef unsigned int __kernel_gid_t;
 #endif
