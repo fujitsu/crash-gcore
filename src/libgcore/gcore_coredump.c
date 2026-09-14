@@ -346,7 +346,7 @@ void gcore_coredump(void)
 
 		gcore->elf->ops->fill_program_header(gcore->elf,
 						     PT_LOAD,
-						     meta->flags,
+						     p_flags,
 						     offset,
 						     meta->start,
 						     meta->dump_size,
