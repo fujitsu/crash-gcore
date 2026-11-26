@@ -66,10 +66,42 @@ static int tls_get(struct task_context *target,
 	return 0;
 }
 
+#ifndef NT_ARM_PAC_MASK
+#define NT_ARM_PAC_MASK 0x406
+#endif
+
+struct gcore_arm64_pac_mask {
+	uint64_t data_mask;
+	uint64_t insn_mask;
+};
+
+static int pac_mask_active(struct task_context *target,
+			   const struct user_regset *regset)
+{
+	ulong vabits = machdep->machspec->VA_BITS_ACTUAL;
+
+	return vabits > 0 && vabits <= 54 &&
+		get_kernel_config("CONFIG_ARM64_PTR_AUTH", NULL) == IKCONFIG_Y;
+}
+
+static int pac_mask_get(struct task_context *target,
+			const struct user_regset *regset,
+			unsigned int size, void *buf)
+{
+	struct gcore_arm64_pac_mask *mask = buf;
+	ulong vabits = machdep->machspec->VA_BITS_ACTUAL;
+
+	/* Linux ptrauth_user_pac_mask(): GENMASK_ULL(54, vabits_actual). */
+	mask->data_mask = (UINT64_MAX >> 9) & (UINT64_MAX << vabits);
+	mask->insn_mask = mask->data_mask;
+	return 0;
+}
+
 enum gcore_regset {
 	REGSET_GPR,
 	REGSET_FPR,
 	REGSET_TLS,
+	REGSET_PAC_MASK,
 };
 
 static struct user_regset arm64_regsets[] = {
@@ -90,6 +122,13 @@ static struct user_regset arm64_regsets[] = {
 		.name = "CORE",
 		.size = sizeof(void *),
 		.get = tls_get,
+	},
+	[REGSET_PAC_MASK] = {
+		.core_note_type = NT_ARM_PAC_MASK,
+		.name = "LINUX",
+		.size = sizeof(struct gcore_arm64_pac_mask),
+		.active = pac_mask_active,
+		.get = pac_mask_get,
 	},
 };
 #ifndef ARRAY_SIZE

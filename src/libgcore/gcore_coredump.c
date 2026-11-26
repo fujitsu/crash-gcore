@@ -346,7 +346,7 @@ void gcore_coredump(void)
 
 		gcore->elf->ops->fill_program_header(gcore->elf,
 						     PT_LOAD,
-						     meta->flags,
+						     p_flags,
 						     offset,
 						     meta->start,
 						     meta->dump_size,
@@ -1143,6 +1143,38 @@ compat_fill_auxv_note(struct elf_note_info *info,
 
 #endif /* GCORE_ARCH_COMPAT */
 
+/*
+ * Grow the NT_FILE name buffer. Upstream estimates vma_count*64 bytes;
+ * Android init maps ~1000 /dev/__properties__ paths of 70–90 bytes and
+ * overflows that (GETBUF smash). Keep the upstream *64 estimate and
+ * grow like the kernel when a path does not fit.
+ */
+static int
+nt_file_grow(void **pdata, unsigned *psize, unsigned *premaining,
+	     void **pstart_end_ofs, char **pname_base, char **pname_curpos,
+	     unsigned need)
+{
+	unsigned add, new_size;
+	char *old = *pdata;
+	char *nw;
+
+	add = need + ELF_EXEC_PAGESIZE;
+	if (*psize > UINT_MAX - add)
+		return FALSE;
+	new_size = PAGE_ALIGN(*psize + add);
+	nw = GETBUF(new_size);
+	BZERO(nw, new_size);
+	memcpy(nw, old, *psize);
+	*pstart_end_ofs = nw + ((char *)*pstart_end_ofs - old);
+	*pname_base = nw + (*pname_base - old);
+	*pname_curpos = nw + (*pname_curpos - old);
+	*premaining += new_size - *psize;
+	*psize = new_size;
+	FREEBUF(old);
+	*pdata = nw;
+	return TRUE;
+}
+
 static int
 fill_files_note(struct elf_note_info *info, struct task_context *tc,
 		struct memelfnote *memnote, struct coredump_params *cprm)
@@ -1156,7 +1188,7 @@ fill_files_note(struct elf_note_info *info, struct task_context *tc,
 
 	BZERO(buf, BUFSIZE);
 
-	/* *Estimated* file count and total data size needed */
+	/* Upstream estimate; nt_file_grow() handles Android-length paths. */
 	if (cprm->vma_count > UINT_MAX / 64) {
 		error(WARNING, "Map count too big.\n");
 		return FALSE;
@@ -1198,6 +1230,15 @@ fill_files_note(struct elf_note_info *info, struct task_context *tc,
 
 		/* get_pathname() fills at the end, move name down */
 		n = strlen(buf)*sizeof(char) + 1;
+		if (n > remaining &&
+		    !nt_file_grow((void **)&data, &size, &remaining,
+				  (void **)&start_end_ofs, &name_base,
+				  &name_curpos, n)) {
+			error(WARNING,
+			      "NT_FILE: skip %s (%u bytes, grow failed)\n",
+			      buf, n);
+			continue;
+		}
 		remaining -= n;
 		memmove(name_curpos, buf, n);
 		progressf("FILE %s\n", name_curpos);
@@ -1209,9 +1250,12 @@ fill_files_note(struct elf_note_info *info, struct task_context *tc,
 		count++;
 	}
 
-	/* Now we know exact count of files, can store it */
+	/* Now we know exact count of files, can store it.
+	 * data[1] is PAGE_SIZE (pgoff unit), not the note buffer size.
+	 * See kernel fill_files_note() in fs/binfmt_elf.c.
+	 */
 	data[0] = count;
-	data[1] = size;
+	data[1] = PAGE_SIZE;
 
 	/*
 	 * Count usually is less than map_count,
@@ -1245,7 +1289,7 @@ compat_fill_files_note(struct elf_note_info *info, struct task_context *tc,
 
 	BZERO(buf, BUFSIZE);
 
-	/* *Estimated* file count and total data size needed */
+	/* Same upstream *64 estimate as fill_files_note(); grow if needed. */
 	if (cprm->vma_count > UINT_MAX / 64) {
 		error(WARNING, "Map count too big.\n");
 		return FALSE;
@@ -1287,6 +1331,15 @@ compat_fill_files_note(struct elf_note_info *info, struct task_context *tc,
 
 		/* get_pathname() fills at the end, move name down */
 		n = strlen(buf)*sizeof(char) + 1;
+		if (n > remaining &&
+		    !nt_file_grow((void **)&data, &size, &remaining,
+				  (void **)&start_end_ofs, &name_base,
+				  &name_curpos, n)) {
+			error(WARNING,
+			      "NT_FILE: skip %s (%u bytes, grow failed)\n",
+			      buf, n);
+			continue;
+		}
 		remaining -= n;
 		memmove(name_curpos, buf, n);
 		progressf("FILE %s\n", name_curpos);
@@ -1298,9 +1351,12 @@ compat_fill_files_note(struct elf_note_info *info, struct task_context *tc,
 		count++;
 	}
 
-	/* Now we know exact count of files, can store it */
+	/* Now we know exact count of files, can store it.
+	 * data[1] is PAGE_SIZE (pgoff unit), not the note buffer size.
+	 * See kernel fill_files_note() in fs/binfmt_elf.c.
+	 */
 	data[0] = count;
-	data[1] = size;
+	data[1] = PAGE_SIZE;
 
 	/*
 	 * Count usually is less than map_count,
